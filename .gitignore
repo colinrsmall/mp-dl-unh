@@ -191,5 +191,7 @@ fabric.properties
 
 .DS_Store
 .idea/
-downloads.zip
+downloads/
+export/
+mms_data/
 
