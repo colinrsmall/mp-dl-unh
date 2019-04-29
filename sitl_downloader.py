@@ -4,8 +4,10 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from pathlib import Path
+from pymms import mrmms_sdc_api as mms_api
 import re
 import os
+import pycdf_utils
 
 BASE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 
@@ -55,7 +57,7 @@ def concatenate_files(files_path=Path(BASE_DIR / 'downloads')):
 
 
 def merge_selections(mms_data_path=BASE_DIR / 'mms_data' / 'data.csv',
-                     selections_path=BASE_DIR / 'all_selections' / 'all_selections.csv'):
+                     selections_path=BASE_DIR / 'mms_data' / 'all_selections.csv'):
     """
     Merges the MMS data and the SITL selections into a single DataFrame.
 
@@ -70,6 +72,8 @@ def merge_selections(mms_data_path=BASE_DIR / 'mms_data' / 'data.csv',
 
     mms_data = pd.read_csv(mms_data_path, infer_datetime_format=True, parse_dates=[0], index_col=0)
     selections = pd.read_csv(selections_path, infer_datetime_format=True, parse_dates=[0, 1])
+    selections.dropna()
+    #selections = selections[selections['comments'].str.contains("MP")]
 
     # Create column to denote whether an observation is selected by SITLs
     mms_data['selected'] = False
@@ -84,8 +88,68 @@ def merge_selections(mms_data_path=BASE_DIR / 'mms_data' / 'data.csv',
     return mms_data
 
 
+def download_cdf(start_date, end_date):
+    """
+    Download needed CDF files for the given times and convert to an dataframe. Uses MrMMS_SDC_API and MMS_Utils.
+
+    Params:
+        start_date (str):    Start date of data interval, formatted as either %Y-%m-%d or
+                             %Y-%m-%dT%H:%M:%S.
+        end_date (str):      End date of data interval, formatted as either %Y-%m-%d or
+                             %Y-%m-%dT%H:%M:%S.
+    """
+
+    # Depend0 = name of the time variable in the CDF
+    # 1. Read depend0
+    # 2. Look back in CDF for the name of the variable
+    # Fillval = says what the NaN is
+    # ONly use DATA var_type
+    # Catdesc = variable description
+
+    # mms  # _afg_ql_srvy_
+    # mms  # _fpi_sitl_fast_
+    # mms  # _dsp_l1a_epsd|bpsd # Use neither or both, but use neither for now
+    # mms  # _edp_sitl_fast_dce_
+    # mms  # _hpca_l1b_srvy_(ion|moments)_ # Definitely use moments, not ions right now
+    # mms  # _feeps_sitl_srvy_(ion|electron)_ # Use both
+    # mms  # _epd-eis_l1b_srvy_extof_ # Don't use it for now
+
+    download_dir = BASE_DIR/'mms_api_downloads'
+
+    afg_gl_srvy_api = mms_api.MrMMS_SDC_API(sc='mms1', instr='afg', level='ql', mode='srvy', data_root=str(download_dir),
+                                            start_date=start_date,
+                                            end_date=end_date)
+    print("afg downloaded")
+
+    afg_gl_srvy_api.Download()
+
+    fpi_sitl_fast_api = mms_api.MrMMS_SDC_API(sc='mms1', instr='fpi', level='ql', mode='fast', data_root=str(download_dir),
+                                              optdesc='des',
+                                              site='team',
+                                              start_date=start_date,
+                                              end_date=end_date)
+    fpi_sitl_fast_api.Download()
+    print("fpi des downloaded")
+
+    fpi_sitl_fast_api = mms_api.MrMMS_SDC_API(sc='mms1', instr='fpi', level='ql', mode='fast', data_root=str(download_dir),
+                                              optdesc='dis',
+                                              start_date=start_date,
+                                              end_date=end_date)
+    fpi_sitl_fast_api.Download()
+    print("fpi dis downloaded")
+
+    fpi_sitl_fast_api = mms_api.MrMMS_SDC_API(sc='mms1', instr='edp', level='ql', mode='fast', data_root=str(download_dir),
+                                              optdesc='dce',
+                                              start_date=start_date,
+                                              end_date=end_date)
+    fpi_sitl_fast_api.Download()
+    print("edp downloaded")
+
+
+download_cdf('2017-01-01', '2017-01-31T23:59:59')
+
 # download_all()
-df = concatenate_files()
-df.to_csv(Path(BASE_DIR / 'export' / 'csv' / 'all_selections.csv'), index=False, columns=df.columns[0:5])
-#merge_selections().to_csv(BASE_DIR / 'export' / 'csv' / 'mms_with_selections.csv', index_label='Time')
-print("Done")
+# df = concatenate_files()
+# df.to_csv(Path(BASE_DIR / 'export' / 'csv' / 'all_selections.csv'), index=False, columns=df.columns[0:5])
+# merge_selections().to_csv(BASE_DIR / 'export' / 'csv' / 'mms_with_selections.csv', index_label='Time')
+# print("Done")
