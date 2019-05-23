@@ -9,6 +9,7 @@ The mp-dl-unh software is designed to provide automated magnetopause crossing se
 * https://eos.unh.edu/space-science-center
 * Partner contact: [Matthew R. Argall](https://mypages.unh.edu/argallmr/bio)
 
+### Partner
 * [University of New Hampshire Department of Computer Science]
 * https://ceps.unh.edu/computer-science
 * Partner contact: [Marek Petrik](https://ceps.unh.edu/person/marek-petrik)
