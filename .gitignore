@@ -195,4 +195,4 @@ downloads/
 export/
 mms_data/
 mms_api_downloads/
-
+*.csv
