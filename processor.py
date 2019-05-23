@@ -288,7 +288,7 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path):
         if start_date <= file_date <= end_date:
             edp_cdf_list.append(path)
 
-    print("\nMerging EDP dataframes:")
+    print("\n   Merging EDP dataframes.")
 
     edp_df = None
     for file_path in edp_cdf_list:
@@ -323,7 +323,7 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path):
         if start_date <= file_date <= end_date:
             fpi_des_cdf_list.append(path)
 
-    print("\nMerging FPI DES dataframes:")
+    print("\n   Merging FPI DES dataframes.")
 
     fpi_des_df = None
     for file_path in fpi_des_cdf_list:
@@ -359,7 +359,7 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path):
         if start_date <= file_date <= end_date:
             afg_cdf_list.append(path)
 
-    print("\nMerging AFG dataframes:")
+    print("\n   Merging AFG dataframes.")
 
     afg_df = None
     for file_path in afg_cdf_list:
@@ -394,7 +394,7 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path):
         if start_date <= file_date <= end_date:
             fpi_dis_cdf_list.append(path)
 
-    print("\nMerging FPI DES dataframes:")
+    print("\n   Merging FPI DES dataframes.")
 
     fpi_dis_df = None
     for file_path in fpi_dis_cdf_list:
@@ -470,13 +470,16 @@ def process(start_date, end_date, base_directory_path):
     # # Define MMS CDF directory location
 
     # Load model
+    print("\nLoading model.")
     model = lstm()
     model.load_weights('model_weights.h5')
 
     # Load data
+    print("\nLoading data:")
     data = concatenate_all_cdf(start_date, end_date, base_directory_path)
 
     # Interpolate interior values, drop outside rows containing 0s
+    print("\nInterpolating NaNs.")
     data = data.interpolate(method='time', limit_area='inside')
     data = data.loc[(data != 0).any(axis=1)]
 
@@ -485,10 +488,12 @@ def process(start_date, end_date, base_directory_path):
     data_index = data.index
 
     # Scale data
+    print("\nScaling data.")
     scaler = pickle.load(open('scaler.sav', 'rb'))
     data = scaler.transform(data)
 
     # Run data through model
+    print("\nGenerating selection predictions.")
     predictions_list = model.predict(np.expand_dims(data, axis=0))
 
     # Filter predictions with threshold
@@ -508,6 +513,7 @@ def process(start_date, end_date, base_directory_path):
     selections['score'] = "Selection description not yet implemented - this is an auto generated description"
 
     # Output selections
+    print("Saving selections to CSV.")
     selections.to_csv(f'gl-mp-unh_{start_date}_{end_date}.csv', header=False)
 
 
