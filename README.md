@@ -7,3 +7,13 @@ The mp-dl-unh software is designed to provide automated magnetopause crossing se
 ### Partners
 * [Matthew R. Argall](https://mypages.unh.edu/argallmr/bio), [University of New Hampshire Space Science Center](https://eos.unh.edu/space-science-center)
 * [Marek Petrik](https://ceps.unh.edu/person/marek-petrik), [University of New Hampshire Department of Computer Science](https://ceps.unh.edu/computer-science)
+
+## Detailed Project & Software Description
+
+### Dependencies
+* Numpy
+* Pandas
+* Scipy
+* Keras
+* TensorFlow
+* Spacepy
