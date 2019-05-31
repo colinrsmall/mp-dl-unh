@@ -6,6 +6,7 @@ import datetime
 import os
 import pickle
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -26,7 +27,7 @@ __status__ = "Production"
 BASE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 
 
-def afg_cdf_to_dataframe(afg_cdf_path):
+def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
     """ Converts AFG CDF to a Pandas dataframe.
 
     Convert a CDF containing AFG data at the provided path to a Pandas dataframe. Only copies measurements from
@@ -34,6 +35,7 @@ def afg_cdf_to_dataframe(afg_cdf_path):
 
     Args:
         afg_cdf_path: A path-like object pointing to a CDF file.
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A Pandas dataframe containing data from the CDF indexed by the CDF's Epoch.
@@ -48,19 +50,21 @@ def afg_cdf_to_dataframe(afg_cdf_path):
     afg_df.set_index('Epoch', inplace=True)
 
     # Copy afg data from the CDF to the dataframe
-    afg_df['mms1_afg_srvy_dmpa_Bx'] = afg_cdf['mms1_afg_srvy_dmpa'][:, 0]
-    afg_df['mms1_afg_srvy_dmpa_By'] = afg_cdf['mms1_afg_srvy_dmpa'][:, 1]
-    afg_df['mms1_afg_srvy_dmpa_Bz'] = afg_cdf['mms1_afg_srvy_dmpa'][:, 2]
-    afg_df['mms1_afg_srvy_dmpa_|B|'] = afg_cdf['mms1_afg_srvy_dmpa'][:, 3]
+    afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 0]
+    afg_df[f'{spacecraft}_afg_srvy_dmpa_By'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 1]
+    afg_df[f'{spacecraft}_afg_srvy_dmpa_Bz'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 2]
+    afg_df[f'{spacecraft}_afg_srvy_dmpa_|B|'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 3]
 
     # Computer metaproperties
-    afg_df['mms1_afg_magnetic_pressure'] = (afg_df['mms1_afg_srvy_dmpa_|B|'] ** 2) / scipy.constants.mu_0
-    afg_df['mms1_afg_clock_angle'] = np.arctan2(afg_df['mms1_afg_srvy_dmpa_By'], afg_df['mms1_afg_srvy_dmpa_Bx'])
+    afg_df[f'{spacecraft}_afg_magnetic_pressure'] = (afg_df[
+                                                         f'{spacecraft}_afg_srvy_dmpa_|B|'] ** 2) / scipy.constants.mu_0
+    afg_df[f'{spacecraft}_afg_clock_angle'] = np.arctan2(afg_df[f'{spacecraft}_afg_srvy_dmpa_By'],
+                                                         afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'])
 
     return afg_df
 
 
-def fpi_des_cdf_to_dataframe(fpi_des_cdf_path):
+def fpi_des_cdf_to_dataframe(fpi_des_cdf_path, spacecraft):
     """ Converts FPI DES CDF to a Pandas dataframe.
 
     Convert a CDF containing FPI DES data at the provided path to a Pandas dataframe. Only copies measurements from
@@ -68,14 +72,17 @@ def fpi_des_cdf_to_dataframe(fpi_des_cdf_path):
 
     Args:
         fpi_des_cdf_path: A path-like object pointing to a CDF file.
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A Pandas dataframe containing data from the CDF indexed by the CDF's Epoch.
     """
 
-    fpi_des_var_list = ['mms1_des_energyspectr_omni_fast', 'mms1_des_numberdensity_fast', 'mms1_des_bulkv_dbcs_fast',
-                        'mms1_des_heatq_dbcs_fast', 'mms1_des_temppara_fast', 'mms1_des_tempperp_fast']
-    fpi_des_var_list_3d = ['mms1_des_prestensor_dbcs_fast', 'mms1_des_temptensor_dbcs_fast']
+    fpi_des_var_list = [f'{spacecraft}_des_energyspectr_omni_fast', f'{spacecraft}_des_numberdensity_fast',
+                        f'{spacecraft}_des_bulkv_dbcs_fast',
+                        f'{spacecraft}_des_heatq_dbcs_fast', f'{spacecraft}_des_temppara_fast',
+                        f'{spacecraft}_des_tempperp_fast']
+    fpi_des_var_list_3d = [f'{spacecraft}_des_prestensor_dbcs_fast', f'{spacecraft}_des_temptensor_dbcs_fast']
 
     # Open FPI DES CDF
     fpi_des_cdf = pycdf.CDF(str(fpi_des_cdf_path))
@@ -103,20 +110,20 @@ def fpi_des_cdf_to_dataframe(fpi_des_cdf_path):
 
     # Calculate metafeatures
 
-    fpi_des_df['mms1_des_temp_anisotropy'] = (fpi_des_df['mms1_des_temppara_fast'] /
-                                              fpi_des_df['mms1_des_tempperp_fast']) - 1
-    fpi_des_df['mms1_des_scalar_temperature'] = (fpi_des_df['mms1_des_temppara_fast'] +
-                                                 2 * fpi_des_df['mms1_des_tempperp_fast']) / 3
+    fpi_des_df[f'{spacecraft}_des_temp_anisotropy'] = (fpi_des_df[f'{spacecraft}_des_temppara_fast'] /
+                                                       fpi_des_df[f'{spacecraft}_des_tempperp_fast']) - 1
+    fpi_des_df[f'{spacecraft}_des_scalar_temperature'] = (fpi_des_df[f'{spacecraft}_des_temppara_fast'] +
+                                                          2 * fpi_des_df[f'{spacecraft}_des_tempperp_fast']) / 3
 
-    prestensor_trace = fpi_des_df['mms1_des_prestensor_dbcs_fast_x1_y1'] + \
-                       fpi_des_df['mms1_des_prestensor_dbcs_fast_x2_y2'] + \
-                       fpi_des_df['mms1_des_prestensor_dbcs_fast_x1_y1']
-    fpi_des_df['mms1_des_scalar_pressure'] = prestensor_trace / 3
+    prestensor_trace = fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x1_y1'] + \
+                       fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x2_y2'] + \
+                       fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x1_y1']
+    fpi_des_df[f'{spacecraft}_des_scalar_pressure'] = prestensor_trace / 3
 
     return fpi_des_df
 
 
-def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path):
+def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path, spacecraft):
     """ Converts FPI DIS CDF to a Pandas dataframe.
 
     Convert a CDF containing FPI DIS data at the provided path to a Pandas dataframe. Only copies measurements from
@@ -124,14 +131,17 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path):
 
     Args:
         fpi_dis_cdf_path: A path-like object pointing to a CDF file.
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A Pandas dataframe containing data from the CDF indexed by the CDF's Epoch.
     """
 
-    fpi_dis_var_list = ['mms1_dis_energyspectr_omni_fast', 'mms1_dis_numberdensity_fast', 'mms1_dis_bulkv_dbcs_fast',
-                        'mms1_dis_heatq_dbcs_fast', 'mms1_dis_temppara_fast', 'mms1_dis_tempperp_fast']
-    fpi_dis_var_list_3d = ['mms1_dis_prestensor_dbcs_fast', 'mms1_dis_temptensor_dbcs_fast']
+    fpi_dis_var_list = [f'{spacecraft}_dis_energyspectr_omni_fast', f'{spacecraft}_dis_numberdensity_fast',
+                        f'{spacecraft}_dis_bulkv_dbcs_fast',
+                        f'{spacecraft}_dis_heatq_dbcs_fast', f'{spacecraft}_dis_temppara_fast',
+                        f'{spacecraft}_dis_tempperp_fast']
+    fpi_dis_var_list_3d = [f'{spacecraft}_dis_prestensor_dbcs_fast', f'{spacecraft}_dis_temptensor_dbcs_fast']
 
     # Open FPI DES CDF
     fpi_dis_cdf = pycdf.CDF(str(fpi_dis_cdf_path))
@@ -150,32 +160,31 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path):
             fpi_dis_df[var] = fpi_dis_cdf[var][...]
 
     for var in fpi_dis_var_list_3d:
-        fpi_dis_df[f'{var}_x1_y1'] = fpi_dis_cdf['mms1_dis_prestensor_dbcs_fast'][:, 0, 0]
-        fpi_dis_df[f'{var}_x2_y1'] = fpi_dis_cdf['mms1_dis_prestensor_dbcs_fast'][:, 1, 0]
-        fpi_dis_df[f'{var}_x2_y2'] = fpi_dis_cdf['mms1_dis_prestensor_dbcs_fast'][:, 1, 1]
-        fpi_dis_df[f'{var}_x3_y1'] = fpi_dis_cdf['mms1_dis_prestensor_dbcs_fast'][:, 2, 0]
-        fpi_dis_df[f'{var}_x3_y2'] = fpi_dis_cdf['mms1_dis_prestensor_dbcs_fast'][:, 2, 1]
-        fpi_dis_df[f'{var}_x3_y3'] = fpi_dis_cdf['mms1_dis_prestensor_dbcs_fast'][:, 2, 2]
+        fpi_dis_df[f'{var}_x1_y1'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 0, 0]
+        fpi_dis_df[f'{var}_x2_y1'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 1, 0]
+        fpi_dis_df[f'{var}_x2_y2'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 1, 1]
+        fpi_dis_df[f'{var}_x3_y1'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 2, 0]
+        fpi_dis_df[f'{var}_x3_y2'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 2, 1]
+        fpi_dis_df[f'{var}_x3_y3'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 2, 2]
 
     # Calculate metafeatures
-    fpi_dis_df['mms1_dis_temp_anisotropy'] = (fpi_dis_df['mms1_dis_temppara_fast'] /
-                                              fpi_dis_df['mms1_dis_tempperp_fast']) - 1
-    fpi_dis_df['mms1_dis_scalar_temperature'] = (fpi_dis_df['mms1_dis_temppara_fast'] +
-                                                 2 * fpi_dis_df['mms1_dis_tempperp_fast']) / 3
+    fpi_dis_df[f'{spacecraft}_dis_temp_anisotropy'] = (fpi_dis_df[f'{spacecraft}_dis_temppara_fast'] /
+                                                       fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) - 1
+    fpi_dis_df[f'{spacecraft}_dis_scalar_temperature'] = (fpi_dis_df[f'{spacecraft}_dis_temppara_fast'] +
+                                                          2 * fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) / 3
 
     return fpi_dis_df
 
 
-def edp_cdf_to_dataframe(edp_cdf_path):
+def edp_cdf_to_dataframe(edp_cdf_path, spacecraft):
     """ Converts EDP CDF to a Pandas dataframe.
 
     Convert a CDF containing EDP data at the provided path to a Pandas dataframe. Only copies measurements from
     the edp_var_list variable below.
 
-    SHOULD NOT BE USED BECAUSE THE EDP CDF DOES NOT CONTAIN THE REQUESTED VARIABLE IN edp_var_list
-
     Args:
         edp_cdf_path: A path-like object pointing to a CDF file.
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A Pandas dataframe containing data from the CDF indexed by the CDF's Epoch.
@@ -185,20 +194,21 @@ def edp_cdf_to_dataframe(edp_cdf_path):
 
     # Parse edp
     edp_df = pd.DataFrame()
-    edp_df['Epoch'] = edp_cdf['mms1_edp_dce_epoch'][...]
+    edp_df['Epoch'] = edp_cdf[f'{spacecraft}_edp_dce_epoch'][...]
     edp_df.set_index('Epoch', inplace=True)
 
-    edp_df['mms1_edp_x'] = edp_cdf['mms1_edp_dce_xyz_dsl'][:, 0]
-    edp_df['mms1_edp_y'] = edp_cdf['mms1_edp_dce_xyz_dsl'][:, 1]
-    edp_df['mms1_edp_z'] = edp_cdf['mms1_edp_dce_xyz_dsl'][:, 2]
+    edp_df[f'{spacecraft}_edp_x'] = edp_cdf[f'{spacecraft}_edp_dce_xyz_dsl'][:, 0]
+    edp_df[f'{spacecraft}_edp_y'] = edp_cdf[f'{spacecraft}_edp_dce_xyz_dsl'][:, 1]
+    edp_df[f'{spacecraft}_edp_z'] = edp_cdf[f'{spacecraft}_edp_dce_xyz_dsl'][:, 2]
 
     # Calculate metafeatures
-    edp_df['mms1_edp_|E|'] = np.sqrt(edp_df['mms1_edp_x'] ** 2 + edp_df['mms1_edp_y'] ** 2 + edp_df['mms1_edp_z'] ** 2)
+    edp_df[f'{spacecraft}_edp_|E|'] = np.sqrt(
+        edp_df[f'{spacecraft}_edp_x'] ** 2 + edp_df[f'{spacecraft}_edp_y'] ** 2 + edp_df[f'{spacecraft}_edp_z'] ** 2)
 
     return edp_df
 
 
-def concatenate_all_cdf(start_date_str, end_date_str, base_directory_path):
+def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft):
     """ Merge all CDFs into a single dataframe.
 
     1. Converts each CDF in PROJECT_ROOT/mms_api_downloads to a Pandas dataframe
@@ -206,19 +216,16 @@ def concatenate_all_cdf(start_date_str, end_date_str, base_directory_path):
     3. Downsamples each instruments' dataframe to match indices
     4. Merges each instruments' dataframe into a single dataframe
 
-    EDP IS DISABLED, SEE COMMENT IN EDP HELPER FUNCTION
-
     Args:
         start_date_str: The first date for the date range, a string given in the format %Y-%m-%d-%H:%M:%S.
         end_date_str: The last date for the date range, a string given in the format %Y-%m-%d-%H:%M:%S.
         base_directory_path: A Path object to the parent .../mms1 directory
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A single merged dataframe with MMS data in the given date range.
     """
 
-    start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d-%H:%M:%S")
-    end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%d-%H:%M:%S")
     fpi_des_df = merge_fpi_des_dataframes(start_date, end_date, base_directory_path)
     fpi_dis_df = merge_fpi_dis_dataframes(start_date, end_date, base_directory_path)
     afg_df = merge_afg_dataframes(start_date, end_date, base_directory_path)
@@ -257,15 +264,15 @@ def concatenate_all_cdf(start_date_str, end_date_str, base_directory_path):
     merged_df.join(edp_df, how='outer')
 
     # Computer other metaproperties
-    merged_df['mms1_temp_ratio'] = fpi_dis_df['mms1_dis_scalar_temperature'] / fpi_dis_df['mms1_dis_scalar_temperature']
-    merged_df['mms1_plasma_beta'] = (fpi_dis_df['mms1_dis_scalar_temperature'] + fpi_dis_df[
-        'mms1_dis_scalar_temperature']) \
-                                    / edp_df['mms1_edp_|E|']
+    merged_df[f'{spacecraft}_temp_ratio'] = fpi_dis_df[f'{spacecraft}_dis_scalar_temperature'] / fpi_dis_df[
+        f'{spacecraft}_dis_scalar_temperature']
+    merged_df[f'{spacecraft}_plasma_beta'] = (fpi_dis_df[f'{spacecraft}_dis_scalar_temperature'] + fpi_dis_df[
+        f'{spacecraft}_dis_scalar_temperature']) / edp_df[f'{spacecraft}_edp_|E|']
 
     return merged_df
 
 
-def merge_edp_dataframes(start_date, end_date, base_directory_path):
+def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft):
     """ Merge EDP CDFs for the given date range into a single dataframe
 
      Args:
@@ -293,20 +300,21 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path):
     edp_df = None
     for file_path in edp_cdf_list:
         if edp_df is None:
-            edp_df = edp_cdf_to_dataframe(file_path)
+            edp_df = edp_cdf_to_dataframe(file_path, spacecraft)
         else:
-            edp_df = edp_df.append(edp_cdf_to_dataframe(file_path))
+            edp_df = edp_df.append(edp_cdf_to_dataframe(file_path, spacecraft))
 
     return edp_df
 
 
-def merge_fpi_des_dataframes(start_date, end_date, base_directory_path):
+def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecraft):
     """ Merge FPI DES CDFs for the given date range into a single dataframe
 
      Args:
         start_date: The first date for the date range, a string given in the format "%Y-%m-%d"
         end_date: The last date for the date range, a string given in the format "%Y-%m-%d"
         base_directory_path: A Path object to the parent .../mms1 directory
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A single merged dataframe with fpi_des instrument data in the given date range.
@@ -328,20 +336,21 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path):
     fpi_des_df = None
     for file_path in fpi_des_cdf_list:
         if fpi_des_df is None:
-            fpi_des_df = fpi_des_cdf_to_dataframe(file_path)
+            fpi_des_df = fpi_des_cdf_to_dataframe(file_path, spacecraft)
         else:
-            fpi_des_df = fpi_des_df.append(fpi_des_cdf_to_dataframe(file_path))
+            fpi_des_df = fpi_des_df.append(fpi_des_cdf_to_dataframe(file_path, spacecraft))
 
     return fpi_des_df
 
 
-def merge_afg_dataframes(start_date, end_date, base_directory_path):
+def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft):
     """ Merge AFG CDFs for the given date range into a single dataframe
 
      Args:
         start_date: The first date for the date range, a string given in the format "%Y-%m-%d"
         end_date: The last date for the date range, a string given in the format "%Y-%m-%d"
         base_directory_path: A Path object to the parent .../mms1 directory
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A single merged dataframe with AFG instrument data in the given date range.
@@ -364,14 +373,14 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path):
     afg_df = None
     for file_path in afg_cdf_list:
         if afg_df is None:
-            afg_df = afg_cdf_to_dataframe(file_path)
+            afg_df = afg_cdf_to_dataframe(file_path, spacecraft)
         else:
-            afg_df = afg_df.append(afg_cdf_to_dataframe(file_path))
+            afg_df = afg_df.append(afg_cdf_to_dataframe(file_path, spacecraft))
 
     return afg_df
 
 
-def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path):
+def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecraft):
     """ Merge FPI DIS CDFs for the given date range into a single dataframe
 
      Args:
@@ -399,9 +408,9 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path):
     fpi_dis_df = None
     for file_path in fpi_dis_cdf_list:
         if fpi_dis_df is None:
-            fpi_dis_df = fpi_dis_cdf_to_dataframe(file_path)
+            fpi_dis_df = fpi_dis_cdf_to_dataframe(file_path, spacecraft)
         else:
-            fpi_dis_df = fpi_dis_df.append(fpi_dis_cdf_to_dataframe(file_path))
+            fpi_dis_df = fpi_dis_df.append(fpi_dis_cdf_to_dataframe(file_path, spacecraft))
 
     return fpi_dis_df
 
@@ -427,8 +436,7 @@ def f1(y_true, y_pred):
         """
         true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
         possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-        recall = true_positives / (possible_positives + K.epsilon())
-        return recall
+        return true_positives / (possible_positives + K.epsilon())
 
     def precision(y_true, y_pred):
         """Precision metric.
@@ -440,12 +448,12 @@ def f1(y_true, y_pred):
         """
         true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
         predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-        precision = true_positives / (predicted_positives + K.epsilon())
-        return precision
+        return true_positives / (predicted_positives + K.epsilon())
 
     precision = precision(y_true, y_pred)
     recall = recall(y_true, y_pred)
     return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
+
 
 def lstm(num_features=55, layer_size=250):
     """ Helper function to define the LSTM used to make predictions.
@@ -466,9 +474,9 @@ def lstm(num_features=55, layer_size=250):
 
     return model
 
-def process(start_date, end_date, base_directory_path):
-    # # Define MMS CDF directory location
 
+def process(start_date, end_date, base_directory_path, spacecraft):
+    # # Define MMS CDF directory location
     # Load model
     print("\nLoading model.")
     model = lstm()
@@ -476,7 +484,7 @@ def process(start_date, end_date, base_directory_path):
 
     # Load data
     print("\nLoading data:")
-    data = concatenate_all_cdf(start_date, end_date, base_directory_path)
+    data = concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft)
 
     # Interpolate interior values, drop outside rows containing 0s
     print("\nInterpolating NaNs.")
@@ -505,7 +513,7 @@ def process(start_date, end_date, base_directory_path):
     predictions_df.insert(0, "time", data_index)
     predictions_df.insert(1, "prediction", filtered_output)
     predictions_df['group'] = (predictions_df.prediction != predictions_df.prediction.shift()).cumsum()
-    predictions_df = predictions_df.loc[predictions_df['prediction'] == True]
+    predictions_df = predictions_df.loc[predictions_df['prediction'] is True]
     selections = pd.DataFrame({'BeginDate': predictions_df.groupby('group').time.first(),
                                'EndDate': predictions_df.groupby('group').time.last()})
     selections = selections.set_index('BeginDate')
@@ -514,9 +522,45 @@ def process(start_date, end_date, base_directory_path):
 
     # Output selections
     print("Saving selections to CSV.")
-    selections.to_csv(f'gl-mp-unh_{start_date}_{end_date}.csv', header=False)
+
+    if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
+        selections.to_csv(
+            f'gl-mp-unh_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv',
+            header=False)
+    else:  # Assume the processor is being run at the SDC
+        selections.to_csv(
+            f'~/dropbox/{spacecraft}/gl-mp-unh_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv', header=False)
 
 
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True' # Error workaround for running on Mac OS, remove for other systems
-process("2017-02-03-10:00:00", "2017-02-05-23:59:59",
-        Path("/Users/colinrsmall/Documents/GitHub/sitl-downloader/mms_api_downloads/mms1"))
+def main():
+    try:
+        start_date = datetime.datetime.strptime(str(sys.argv[1]), "%Y-%m-%dT%H:%M:%S")
+        end_date = datetime.datetime.strptime(str(sys.argv[2]), "%Y-%m-%dT%H:%M:%S")
+        spacecraft = str(sys.argv[3])
+    except ValueError as e:
+        print("Error: Input datetime not in correct format.")
+        print(f"{e}")
+        sys.exit(-1)
+    except IndexError:
+        print(f"Not enough command line arguments. Expected 3, got {len(sys.argv)}")
+        print("Usage: processor.py start_date end_date spacecraft")
+        sys.exit(-1)
+
+    # Error handling
+    if len(sys.argv) > 3:
+        print(f"Soft Error: Too many command line arguments entered. Expected 3, got {len(sys.argv)}.")
+        print("Continuing.")
+
+    if spacecraft not in ["mms1", "mms2", "mms3", "mms4"]:
+        print("Error: Invalid spacecraft entered.")
+        print(f'Expected one of [ "mms1", "mms2", "mms3", "mms4" ], got {spacecraft}.')
+
+    if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
+        os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'  # Error workaround for running on Mac OS
+        base_directory_path = Path('/Users/colinrsmall/Documents/GitHub/sitl-downloader/mms_api_downloads')
+    else:  # Assume processor is being run at SDC
+        base_directory_path = Path(f'/mms/data/')
+
+    process(start_date, end_date, base_directory_path, spacecraft)
+
+main()
