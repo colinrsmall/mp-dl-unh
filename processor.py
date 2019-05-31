@@ -50,12 +50,21 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
     afg_df.set_index('Epoch', inplace=True)
 
     # Copy afg data from the CDF to the dataframe
-    afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 0]
-    afg_df[f'{spacecraft}_afg_srvy_dmpa_By'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 1]
-    afg_df[f'{spacecraft}_afg_srvy_dmpa_Bz'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 2]
-    afg_df[f'{spacecraft}_afg_srvy_dmpa_|B|'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 3]
+    try:
+        afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 0]
+        afg_df[f'{spacecraft}_afg_srvy_dmpa_By'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 1]
+        afg_df[f'{spacecraft}_afg_srvy_dmpa_Bz'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 2]
+        afg_df[f'{spacecraft}_afg_srvy_dmpa_|B|'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 3]
 
-    # Computer metaproperties
+        # Computer metaproperties
+        afg_df[f'{spacecraft}_afg_magnetic_pressure'] = (afg_df[f'{spacecraft}_afg_srvy_dmpa_|B|'] ** 2) / scipy.constants.mu_0
+        afg_df[f'{spacecraft}_afg_clock_angle'] = np.arctan2(afg_df[f'{spacecraft}_afg_srvy_dmpa_By'], afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'])
+    except KeyError as e:
+        print(f"\n{e}")
+        print(f"For {afg_cdf_path}. Skipping file.\n")
+        return pd.DataFrame()
+
+    # Compute metaproperties
     afg_df[f'{spacecraft}_afg_magnetic_pressure'] = (afg_df[
                                                          f'{spacecraft}_afg_srvy_dmpa_|B|'] ** 2) / scipy.constants.mu_0
     afg_df[f'{spacecraft}_afg_clock_angle'] = np.arctan2(afg_df[f'{spacecraft}_afg_srvy_dmpa_By'],
@@ -93,32 +102,37 @@ def fpi_des_cdf_to_dataframe(fpi_des_cdf_path, spacecraft):
     fpi_des_df.set_index('Epoch', inplace=True)
 
     # Copy afg data from the CDF to the dataframe
-    for var in fpi_des_var_list:
-        if fpi_des_cdf[var][...].ndim > 1:  # Data includes more than one measurement
-            for i in range(0, fpi_des_cdf[var].shape[1] - 1):
-                fpi_des_df[var + f'_{i}'] = fpi_des_cdf[var][:, i]
-        else:
-            fpi_des_df[var] = fpi_des_cdf[var][...]
+    try:
+        for var in fpi_des_var_list:
+            if fpi_des_cdf[var][...].ndim > 1:  # Data includes more than one measurement
+                for i in range(0, fpi_des_cdf[var].shape[1] - 1):
+                    fpi_des_df[var + f'_{i}'] = fpi_des_cdf[var][:, i]
+            else:
+                fpi_des_df[var] = fpi_des_cdf[var][...]
 
-    for var in fpi_des_var_list_3d:
-        fpi_des_df[f'{var}_x1_y1'] = fpi_des_cdf[f'{var}'][:, 0, 0]
-        fpi_des_df[f'{var}_x2_y1'] = fpi_des_cdf[f'{var}'][:, 1, 0]
-        fpi_des_df[f'{var}_x2_y2'] = fpi_des_cdf[f'{var}'][:, 1, 1]
-        fpi_des_df[f'{var}_x3_y1'] = fpi_des_cdf[f'{var}'][:, 2, 0]
-        fpi_des_df[f'{var}_x3_y2'] = fpi_des_cdf[f'{var}'][:, 2, 1]
-        fpi_des_df[f'{var}_x3_y3'] = fpi_des_cdf[f'{var}'][:, 2, 2]
+        for var in fpi_des_var_list_3d:
+            fpi_des_df[f'{var}_x1_y1'] = fpi_des_cdf[f'{var}'][:, 0, 0]
+            fpi_des_df[f'{var}_x2_y1'] = fpi_des_cdf[f'{var}'][:, 1, 0]
+            fpi_des_df[f'{var}_x2_y2'] = fpi_des_cdf[f'{var}'][:, 1, 1]
+            fpi_des_df[f'{var}_x3_y1'] = fpi_des_cdf[f'{var}'][:, 2, 0]
+            fpi_des_df[f'{var}_x3_y2'] = fpi_des_cdf[f'{var}'][:, 2, 1]
+            fpi_des_df[f'{var}_x3_y3'] = fpi_des_cdf[f'{var}'][:, 2, 2]
 
-    # Calculate metafeatures
+        # Compute metafeatures
+        fpi_des_df[f'{spacecraft}_des_temp_anisotropy'] = (fpi_des_df[f'{spacecraft}_des_temppara_fast'] /
+                                                           fpi_des_df[f'{spacecraft}_des_tempperp_fast']) - 1
+        fpi_des_df[f'{spacecraft}_des_scalar_temperature'] = (fpi_des_df[f'{spacecraft}_des_temppara_fast'] +
+                                                              2 * fpi_des_df[f'{spacecraft}_des_tempperp_fast']) / 3
 
-    fpi_des_df[f'{spacecraft}_des_temp_anisotropy'] = (fpi_des_df[f'{spacecraft}_des_temppara_fast'] /
-                                                       fpi_des_df[f'{spacecraft}_des_tempperp_fast']) - 1
-    fpi_des_df[f'{spacecraft}_des_scalar_temperature'] = (fpi_des_df[f'{spacecraft}_des_temppara_fast'] +
-                                                          2 * fpi_des_df[f'{spacecraft}_des_tempperp_fast']) / 3
+        prestensor_trace = fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x1_y1'] + \
+                           fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x2_y2'] + \
+                           fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x1_y1']
+        fpi_des_df[f'{spacecraft}_des_scalar_pressure'] = prestensor_trace / 3
 
-    prestensor_trace = fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x1_y1'] + \
-                       fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x2_y2'] + \
-                       fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x1_y1']
-    fpi_des_df[f'{spacecraft}_des_scalar_pressure'] = prestensor_trace / 3
+    except KeyError as e:
+        print(f"\n{e}")
+        print(f"For {fpi_des_cdf_path}. Skipping file.\n")
+        return pd.DataFrame()
 
     return fpi_des_df
 
@@ -152,26 +166,31 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path, spacecraft):
     fpi_dis_df.set_index('Epoch', inplace=True)
 
     # Copy afg data from the CDF to the dataframe
-    for var in fpi_dis_var_list:
-        if fpi_dis_cdf[var][...].ndim > 1:  # Data includes more than one measurement
-            for i in range(0, fpi_dis_cdf[var].shape[1] - 1):
-                fpi_dis_df[var + f'_{i}'] = fpi_dis_cdf[var][:, i]
-        else:
-            fpi_dis_df[var] = fpi_dis_cdf[var][...]
+    try:
+        for var in fpi_dis_var_list:
+            if fpi_dis_cdf[var][...].ndim > 1:  # Data includes more than one measurement
+                for i in range(0, fpi_dis_cdf[var].shape[1] - 1):
+                    fpi_dis_df[var + f'_{i}'] = fpi_dis_cdf[var][:, i]
+            else:
+                fpi_dis_df[var] = fpi_dis_cdf[var][...]
 
-    for var in fpi_dis_var_list_3d:
-        fpi_dis_df[f'{var}_x1_y1'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 0, 0]
-        fpi_dis_df[f'{var}_x2_y1'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 1, 0]
-        fpi_dis_df[f'{var}_x2_y2'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 1, 1]
-        fpi_dis_df[f'{var}_x3_y1'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 2, 0]
-        fpi_dis_df[f'{var}_x3_y2'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 2, 1]
-        fpi_dis_df[f'{var}_x3_y3'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 2, 2]
+        for var in fpi_dis_var_list_3d:
+            fpi_dis_df[f'{var}_x1_y1'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 0, 0]
+            fpi_dis_df[f'{var}_x2_y1'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 1, 0]
+            fpi_dis_df[f'{var}_x2_y2'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 1, 1]
+            fpi_dis_df[f'{var}_x3_y1'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 2, 0]
+            fpi_dis_df[f'{var}_x3_y2'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 2, 1]
+            fpi_dis_df[f'{var}_x3_y3'] = fpi_dis_cdf[f'{spacecraft}_dis_prestensor_dbcs_fast'][:, 2, 2]
 
-    # Calculate metafeatures
-    fpi_dis_df[f'{spacecraft}_dis_temp_anisotropy'] = (fpi_dis_df[f'{spacecraft}_dis_temppara_fast'] /
-                                                       fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) - 1
-    fpi_dis_df[f'{spacecraft}_dis_scalar_temperature'] = (fpi_dis_df[f'{spacecraft}_dis_temppara_fast'] +
-                                                          2 * fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) / 3
+        # Compute metafeatures
+        fpi_dis_df[f'{spacecraft}_dis_temp_anisotropy'] = (fpi_dis_df[f'{spacecraft}_dis_temppara_fast'] /
+                                                  fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) - 1
+        fpi_dis_df[f'{spacecraft}_dis_scalar_temperature'] = (fpi_dis_df[f'{spacecraft}_dis_temppara_fast'] +
+                                                     2 * fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) / 3
+    except KeyError as e:
+        print(f"\n{e}")
+        print(f"For {fpi_dis_cdf_path}. Skipping file.\n")
+        return pd.DataFrame()
 
     return fpi_dis_df
 
@@ -193,17 +212,23 @@ def edp_cdf_to_dataframe(edp_cdf_path, spacecraft):
     edp_cdf = pycdf.CDF(str(edp_cdf_path))
 
     # Parse edp
-    edp_df = pd.DataFrame()
-    edp_df['Epoch'] = edp_cdf[f'{spacecraft}_edp_dce_epoch'][...]
-    edp_df.set_index('Epoch', inplace=True)
+    try:
+        edp_df = pd.DataFrame()
+        edp_df['Epoch'] = edp_cdf[f'{spacecraft}_edp_dce_epoch'][...]
+        edp_df.set_index('Epoch', inplace=True)
 
-    edp_df[f'{spacecraft}_edp_x'] = edp_cdf[f'{spacecraft}_edp_dce_xyz_dsl'][:, 0]
-    edp_df[f'{spacecraft}_edp_y'] = edp_cdf[f'{spacecraft}_edp_dce_xyz_dsl'][:, 1]
-    edp_df[f'{spacecraft}_edp_z'] = edp_cdf[f'{spacecraft}_edp_dce_xyz_dsl'][:, 2]
+        edp_df[f'{spacecraft}_edp_x'] = edp_cdf[f'{spacecraft}_edp_dce_xyz_dsl'][:, 0]
+        edp_df[f'{spacecraft}_edp_y'] = edp_cdf[f'{spacecraft}_edp_dce_xyz_dsl'][:, 1]
+        edp_df[f'{spacecraft}_edp_z'] = edp_cdf[f'{spacecraft}_edp_dce_xyz_dsl'][:, 2]
 
-    # Calculate metafeatures
-    edp_df[f'{spacecraft}_edp_|E|'] = np.sqrt(
-        edp_df[f'{spacecraft}_edp_x'] ** 2 + edp_df[f'{spacecraft}_edp_y'] ** 2 + edp_df[f'{spacecraft}_edp_z'] ** 2)
+        # Compute metafeatures
+        edp_df[f'{spacecraft}_edp_|E|'] = np.sqrt(
+            edp_df[f'{spacecraft}_edp_x'] ** 2 + edp_df[f'{spacecraft}_edp_y'] ** 2 + edp_df[f'{spacecraft}_edp_z'] ** 2)
+
+    except KeyError as e:
+        print(f"\n{e}")
+        print(f"For {edp_cdf_path}. Skipping file.\n")
+        return pd.DataFrame()
 
     return edp_df
 
@@ -217,8 +242,8 @@ def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft):
     4. Merges each instruments' dataframe into a single dataframe
 
     Args:
-        start_date_str: The first date for the date range, a string given in the format %Y-%m-%d-%H:%M:%S.
-        end_date_str: The last date for the date range, a string given in the format %Y-%m-%d-%H:%M:%S.
+        start_date: The first date for the date range, a string given in the format %Y-%m-%d-%H:%M:%S.
+        end_date: The last date for the date range, a string given in the format %Y-%m-%d-%H:%M:%S.
         base_directory_path: A Path object to the parent .../mms1 directory
         spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
@@ -226,10 +251,10 @@ def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft):
         A single merged dataframe with MMS data in the given date range.
     """
 
-    fpi_des_df = merge_fpi_des_dataframes(start_date, end_date, base_directory_path)
-    fpi_dis_df = merge_fpi_dis_dataframes(start_date, end_date, base_directory_path)
-    afg_df = merge_afg_dataframes(start_date, end_date, base_directory_path)
-    edp_df = merge_edp_dataframes(start_date, end_date, base_directory_path)
+    fpi_des_df = merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecraft)
+    fpi_dis_df = merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecraft)
+    afg_df = merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft)
+    edp_df = merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft)
 
     # Drop duplicate index entries
     fpi_des_df['index'] = fpi_des_df.index
@@ -256,6 +281,8 @@ def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft):
     # Downsamples dataframes down to match fpi_des timescale
     afg_df = afg_df.reindex(fpi_des_df.index, method='nearest')
     edp_df = edp_df.reindex(fpi_des_df.index, method='nearest')
+    if len(fpi_dis_df) != len(fpi_des_df):
+        fpi_dis_df = fpi_dis_df.reindex(fpi_des_df.index, method='nearest')
 
     # Merge dataframes
     merged_df = fpi_des_df
@@ -279,6 +306,7 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft):
         start_date: The first date for the date range, a string given in the format "%Y-%m-%d"
         end_date: The last date for the date range, a string given in the format "%Y-%m-%d"
         base_directory_path: A Path object to the parent .../mms1 directory
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A single merged dataframe with EDP instrument data in the given date range.
@@ -295,6 +323,12 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft):
         if start_date <= file_date <= end_date:
             edp_cdf_list.append(path)
 
+    if len(edp_cdf_list) == 0:
+        print("Error: No CDFs found for EDP in given range.")
+        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'In path: {edp_directory}')
+        sys.exit(-1)
+
     print("\n   Merging EDP dataframes.")
 
     edp_df = None
@@ -303,6 +337,12 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft):
             edp_df = edp_cdf_to_dataframe(file_path, spacecraft)
         else:
             edp_df = edp_df.append(edp_cdf_to_dataframe(file_path, spacecraft))
+
+    if( len(edp_df) == 0 ):
+        print("Error: No valid EDP CDFs could be read.")
+        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'In path: {edp_directory}')
+        sys.exit(-1)
 
     return edp_df
 
@@ -331,6 +371,12 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
         if start_date <= file_date <= end_date:
             fpi_des_cdf_list.append(path)
 
+    if len(fpi_des_cdf_list) == 0:
+        print("Error: No CDFs found for FPI DES in given range.")
+        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'In path: {fpi_des_cdf_list}')
+        sys.exit(-1)
+
     print("\n   Merging FPI DES dataframes.")
 
     fpi_des_df = None
@@ -339,6 +385,12 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
             fpi_des_df = fpi_des_cdf_to_dataframe(file_path, spacecraft)
         else:
             fpi_des_df = fpi_des_df.append(fpi_des_cdf_to_dataframe(file_path, spacecraft))
+
+    if( len(fpi_des_df) == 0 ):
+        print("Error: No valid FPI DES CDFs could be read.")
+        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'In path: {fpi_des_directory}')
+        sys.exit(-1)
 
     return fpi_des_df
 
@@ -368,6 +420,12 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft):
         if start_date <= file_date <= end_date:
             afg_cdf_list.append(path)
 
+    if len(afg_cdf_list) == 0:
+        print("Error: No CDFs found for AFG in given range.")
+        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'In path: {afg_cdf_list}')
+        sys.exit(-1)
+
     print("\n   Merging AFG dataframes.")
 
     afg_df = None
@@ -376,6 +434,12 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft):
             afg_df = afg_cdf_to_dataframe(file_path, spacecraft)
         else:
             afg_df = afg_df.append(afg_cdf_to_dataframe(file_path, spacecraft))
+
+    if( len(afg_df) == 0 ):
+        print("Error: No valid AFG CDFs could be read.")
+        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'In path: {afg_directory}')
+        sys.exit(-1)
 
     return afg_df
 
@@ -387,6 +451,7 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
         start_date: The first date for the date range, a string given in the format "%Y-%m-%d"
         end_date: The last date for the date range, a string given in the format "%Y-%m-%d"
         base_directory_path: A Path object to the parent .../mms1 directory
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A single merged dataframe with FPI DIS instrument data in the given date range.
@@ -403,7 +468,13 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
         if start_date <= file_date <= end_date:
             fpi_dis_cdf_list.append(path)
 
-    print("\n   Merging FPI DES dataframes.")
+    if len(fpi_dis_cdf_list) == 0:
+        print("Error: No CDFs found for FPI DIS in given range.")
+        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'In path: {fpi_dis_cdf_list}')
+        sys.exit(-1)
+
+    print("\n   Merging FPI DIS dataframes.")
 
     fpi_dis_df = None
     for file_path in fpi_dis_cdf_list:
@@ -411,6 +482,12 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
             fpi_dis_df = fpi_dis_cdf_to_dataframe(file_path, spacecraft)
         else:
             fpi_dis_df = fpi_dis_df.append(fpi_dis_cdf_to_dataframe(file_path, spacecraft))
+
+    if( len(fpi_dis_df) == 0 ):
+        print("Error: No valid FPI DES CDFs could be read.")
+        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'In path: {fpi_dis_directory}')
+        sys.exit(-1)
 
     return fpi_dis_df
 
@@ -480,7 +557,7 @@ def process(start_date, end_date, base_directory_path, spacecraft):
     # Load model
     print("\nLoading model.")
     model = lstm()
-    model.load_weights('model_weights.h5')
+    model.load_weights('model/model_weights.h5')
 
     # Load data
     print("\nLoading data:")
@@ -562,5 +639,6 @@ def main():
         base_directory_path = Path(f'/mms/data/')
 
     process(start_date, end_date, base_directory_path, spacecraft)
+
 
 main()
