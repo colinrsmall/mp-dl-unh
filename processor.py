@@ -5,12 +5,12 @@
 import datetime
 import os
 import pickle
-import re
 import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import requests
 import scipy.constants
 from keras import backend as K
 from spacepy import pycdf
@@ -25,6 +25,45 @@ __email__ = "crs1031@wildcats.unh.edu"
 __status__ = "Production"
 
 BASE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+
+
+def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument, data_level, data_rate_mode, username,
+              password,
+              descriptor=None):
+    """ Query the SDC for a list of CDFs matching parameters.
+
+    Args:
+        base_directory_path: A Path object pointing to the root of the MMS data folder (just "/' at the SDC)
+        start_date: The first date for the date range, a datimetime object in the format %Y-%m-%dT%H:%M:%S.
+        end_date: The last date for the date range, a datimetime object in the format %Y-%m-%dT%H:%M:%S.
+        spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ].
+        instrument: Which instrument's CDFs are requested. A string, one of [ "afg", "fpi", "edp" ].
+        data_level: Requested data level.
+        data_rate_mode: Requested data rate mode. One of [ "slow", "fast", "srvy", "brst" ].
+        descriptor: Optional descriptor, used for requesting FPI and EDP files. One of [ none, "dis", "des", "dce" ].
+
+    Returns:
+        A list of Path objects to all CDFs matching the query parameters.
+    """
+
+    start_date_string = start_date.strftime("%Y-%m-%d")
+    end_date_string = end_date.strftime("%Y-%m-%d")
+
+    request_url_base = "https://lasp.colorado.edu/mms/sdc/sitl/files/api/v1/file_names/science?"
+    request_url = '&'.join(
+        [request_url_base, f"start_date={start_date_string}", f"end_date={end_date_string}", f"sc_id={spacecraft}",
+         f"instrument_id={instrument}", f"data_level={data_level}", f"data_rate_mode={data_rate_mode}"])
+    if descriptor is not None:
+        request_url += f"&descriptor={descriptor}"
+
+    request = requests.get(request_url, timeout=2, auth=(username, password))
+    request.raise_for_status()
+
+    paths_string_list = request.text.split(",")
+
+    paths_list = [Path(base_directory_path / Path(path)) for path in paths_string_list]
+
+    return paths_list
 
 
 def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
@@ -56,9 +95,20 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
         afg_df[f'{spacecraft}_afg_srvy_dmpa_Bz'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 2]
         afg_df[f'{spacecraft}_afg_srvy_dmpa_|B|'] = afg_cdf[f'{spacecraft}_afg_srvy_dmpa'][:, 3]
 
-        # Computer metaproperties
-        afg_df[f'{spacecraft}_afg_magnetic_pressure'] = (afg_df[f'{spacecraft}_afg_srvy_dmpa_|B|'] ** 2) / scipy.constants.mu_0
-        afg_df[f'{spacecraft}_afg_clock_angle'] = np.arctan2(afg_df[f'{spacecraft}_afg_srvy_dmpa_By'], afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'])
+        # Compute metaproperties
+        afg_df[f'{spacecraft}_afg_magnetic_pressure'] = (afg_df[
+                                                             f'{spacecraft}_afg_srvy_dmpa_|B|'] ** 2) / scipy.constants.mu_0
+        afg_df[f'{spacecraft}_afg_clock_angle'] = np.arctan2(afg_df[f'{spacecraft}_afg_srvy_dmpa_By'],
+                                                             afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'])
+
+        # Compute Bz quality
+        # M = 2
+        # smoothed_data = [afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'][0]]
+        # for i, value in enumerate([afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx']], 1):
+        #     smoothed_data.append((smoothed_data[i - 1] * (2 ** M - 1) + value) / 2 ** M)
+        # diff = np.subtract(afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'], smoothed_data)
+        # afg_df[f'{spacecraft}_afg_Bz_Q'] = np.sqrt(diff.dot(diff))
+
     except KeyError as e:
         print(f"\n{e}")
         print(f"For {afg_cdf_path}. Skipping file.\n")
@@ -184,9 +234,26 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path, spacecraft):
 
         # Compute metafeatures
         fpi_dis_df[f'{spacecraft}_dis_temp_anisotropy'] = (fpi_dis_df[f'{spacecraft}_dis_temppara_fast'] /
-                                                  fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) - 1
+                                                           fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) - 1
         fpi_dis_df[f'{spacecraft}_dis_scalar_temperature'] = (fpi_dis_df[f'{spacecraft}_dis_temppara_fast'] +
-                                                     2 * fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) / 3
+                                                              2 * fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) / 3
+
+        # # Compute N quality
+        # M = 2
+        # smoothed_data = [afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'][0]]
+        # for i, value in enumerate([afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx']], 1):
+        #     smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
+        # diff = np.subtract(afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'], smoothed_data)
+        # afg_df[f'{spacecraft}_afg_Bz_Q'] = np.sqrt(diff.dot(diff))
+        #
+        # # Compute Vz quality
+        # M = 2
+        # smoothed_data = [afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'][0]]
+        # for i, value in enumerate([afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx']], 1):
+        #     smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
+        # diff = np.subtract(afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'], smoothed_data)
+        # afg_df[f'{spacecraft}_afg_Bz_Q'] = np.sqrt(diff.dot(diff))
+
     except KeyError as e:
         print(f"\n{e}")
         print(f"For {fpi_dis_cdf_path}. Skipping file.\n")
@@ -223,7 +290,8 @@ def edp_cdf_to_dataframe(edp_cdf_path, spacecraft):
 
         # Compute metafeatures
         edp_df[f'{spacecraft}_edp_|E|'] = np.sqrt(
-            edp_df[f'{spacecraft}_edp_x'] ** 2 + edp_df[f'{spacecraft}_edp_y'] ** 2 + edp_df[f'{spacecraft}_edp_z'] ** 2)
+            edp_df[f'{spacecraft}_edp_x'] ** 2 + edp_df[f'{spacecraft}_edp_y'] ** 2 + edp_df[
+                f'{spacecraft}_edp_z'] ** 2)
 
     except KeyError as e:
         print(f"\n{e}")
@@ -233,7 +301,7 @@ def edp_cdf_to_dataframe(edp_cdf_path, spacecraft):
     return edp_df
 
 
-def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft):
+def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft, username, password):
     """ Merge all CDFs into a single dataframe.
 
     1. Converts each CDF in PROJECT_ROOT/mms_api_downloads to a Pandas dataframe
@@ -242,8 +310,8 @@ def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft):
     4. Merges each instruments' dataframe into a single dataframe
 
     Args:
-        start_date: The first date for the date range, a string given in the format %Y-%m-%d-%H:%M:%S.
-        end_date: The last date for the date range, a string given in the format %Y-%m-%d-%H:%M:%S.
+        start_date: The first date for the date range, a datimetime object in the format %Y-%m-%d-%H:%M:%S.
+        end_date: The last date for the date range, a datimetime object in the format %Y-%m-%d-%H:%M:%S.
         base_directory_path: A Path object to the parent .../mms1 directory
         spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
@@ -251,10 +319,10 @@ def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft):
         A single merged dataframe with MMS data in the given date range.
     """
 
-    fpi_des_df = merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecraft)
-    fpi_dis_df = merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecraft)
-    afg_df = merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft)
-    edp_df = merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft)
+    fpi_des_df = merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password)
+    fpi_dis_df = merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password)
+    afg_df = merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password)
+    edp_df = merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password)
 
     # Drop duplicate index entries
     fpi_des_df['index'] = fpi_des_df.index
@@ -299,34 +367,26 @@ def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft):
     return merged_df
 
 
-def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft):
+def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password):
     """ Merge EDP CDFs for the given date range into a single dataframe
 
      Args:
         start_date: The first date for the date range, a string given in the format "%Y-%m-%d"
         end_date: The last date for the date range, a string given in the format "%Y-%m-%d"
-        base_directory_path: A Path object to the parent .../mms1 directory
+        base_directory_path: A Path object to the parent .../[spacecraft] directory
         spacecraft: Spacecraft string. One of [ "mms1", "mms2", "mms3", "mms4" ]
 
     Returns:
         A single merged dataframe with EDP instrument data in the given date range.
     """
-    # Merge edp dataframes
-    edp_directory = base_directory_path / 'edp' / 'fast' / 'ql' / 'dce'
-    edp_cdf_glob = edp_directory.glob('**/*.cdf')
-    edp_cdf_list = []
+    # Query SDC web service for list of CDFs
 
-    for path in list(edp_cdf_glob):
-        date_search = re.search('\d{8}', str(path))
-        file_date_string = date_search.group(0)
-        file_date = datetime.datetime.strptime(file_date_string, "%Y%m%d")
-        if start_date <= file_date <= end_date:
-            edp_cdf_list.append(path)
+    edp_cdf_list = query_sdc(base_directory_path, start_date, end_date, spacecraft, "edp", "ql", "fast",
+                             username, password, "dce")
 
     if len(edp_cdf_list) == 0:
         print("Error: No CDFs found for EDP in given range.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        print(f'In path: {edp_directory}')
         sys.exit(-1)
 
     print("\n   Merging EDP dataframes.")
@@ -338,16 +398,15 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft):
         else:
             edp_df = edp_df.append(edp_cdf_to_dataframe(file_path, spacecraft))
 
-    if( len(edp_df) == 0 ):
+    if len(edp_df) == 0:
         print("Error: No valid EDP CDFs could be read.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        print(f'In path: {edp_directory}')
         sys.exit(-1)
 
     return edp_df
 
 
-def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecraft):
+def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password):
     """ Merge FPI DES CDFs for the given date range into a single dataframe
 
      Args:
@@ -359,22 +418,13 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
     Returns:
         A single merged dataframe with fpi_des instrument data in the given date range.
     """
-    # Merge fpi des dataframes
-    fpi_des_directory = base_directory_path / 'fpi' / 'fast' / 'ql' / 'des'
-    fpi_des_cdf_glob = fpi_des_directory.glob('**/*.cdf')
-    fpi_des_cdf_list = []
-
-    for path in list(fpi_des_cdf_glob):
-        date_search = re.search('\d{8}', str(path))
-        file_date_string = date_search.group(0)
-        file_date = datetime.datetime.strptime(file_date_string, "%Y%m%d")
-        if start_date <= file_date <= end_date:
-            fpi_des_cdf_list.append(path)
+    # Query SDC for FPI DES CDFs
+    fpi_des_cdf_list = query_sdc(base_directory_path, start_date, end_date, spacecraft, "fpi", "ql", "fast",
+                                 username, password, "des")
 
     if len(fpi_des_cdf_list) == 0:
         print("Error: No CDFs found for FPI DES in given range.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        print(f'In path: {fpi_des_cdf_list}')
         sys.exit(-1)
 
     print("\n   Merging FPI DES dataframes.")
@@ -386,16 +436,15 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
         else:
             fpi_des_df = fpi_des_df.append(fpi_des_cdf_to_dataframe(file_path, spacecraft))
 
-    if( len(fpi_des_df) == 0 ):
+    if len(fpi_des_df) == 0:
         print("Error: No valid FPI DES CDFs could be read.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        print(f'In path: {fpi_des_directory}')
         sys.exit(-1)
 
     return fpi_des_df
 
 
-def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft):
+def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password):
     """ Merge AFG CDFs for the given date range into a single dataframe
 
      Args:
@@ -407,23 +456,13 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft):
     Returns:
         A single merged dataframe with AFG instrument data in the given date range.
     """
-    # Merge afg dataframes
-    afg_directory = base_directory_path / 'afg' / 'srvy' / 'ql'
-    afg_cdf_glob = afg_directory.glob(
-        '**/*.cdf')  # Creates a generator for all .cdf files in all subdirectories of afg_directory
-    afg_cdf_list = []
-
-    for path in list(afg_cdf_glob):
-        date_search = re.search('\d{8}', str(path))
-        file_date_string = date_search.group(0)
-        file_date = datetime.datetime.strptime(file_date_string, "%Y%m%d")
-        if start_date <= file_date <= end_date:
-            afg_cdf_list.append(path)
+    # Query SDC for AFG CDFs
+    afg_cdf_list = query_sdc(base_directory_path, start_date, end_date, spacecraft, "afg", "ql", "srvy", username,
+                             password)
 
     if len(afg_cdf_list) == 0:
         print("Error: No CDFs found for AFG in given range.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        print(f'In path: {afg_cdf_list}')
         sys.exit(-1)
 
     print("\n   Merging AFG dataframes.")
@@ -435,16 +474,15 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft):
         else:
             afg_df = afg_df.append(afg_cdf_to_dataframe(file_path, spacecraft))
 
-    if( len(afg_df) == 0 ):
+    if len(afg_df) == 0:
         print("Error: No valid AFG CDFs could be read.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        print(f'In path: {afg_directory}')
         sys.exit(-1)
 
     return afg_df
 
 
-def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecraft):
+def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password):
     """ Merge FPI DIS CDFs for the given date range into a single dataframe
 
      Args:
@@ -456,22 +494,13 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
     Returns:
         A single merged dataframe with FPI DIS instrument data in the given date range.
     """
-    # Merge fpi dis dataframes
-    fpi_dis_directory = base_directory_path / 'fpi' / 'fast' / 'ql' / 'dis'
-    fpi_dis_cdf_glob = fpi_dis_directory.glob('**/*.cdf')
-    fpi_dis_cdf_list = []
-
-    for path in list(fpi_dis_cdf_glob):
-        date_search = re.search('\d{8}', str(path))
-        file_date_string = date_search.group(0)
-        file_date = datetime.datetime.strptime(file_date_string, "%Y%m%d")
-        if start_date <= file_date <= end_date:
-            fpi_dis_cdf_list.append(path)
+    # Query SDC for FPI DIS CDFs
+    fpi_dis_cdf_list = query_sdc(base_directory_path, start_date, end_date, spacecraft, "fpi", "ql", "fast",
+                                 username, password, "dis")
 
     if len(fpi_dis_cdf_list) == 0:
         print("Error: No CDFs found for FPI DIS in given range.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        print(f'In path: {fpi_dis_cdf_list}')
         sys.exit(-1)
 
     print("\n   Merging FPI DIS dataframes.")
@@ -483,10 +512,9 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
         else:
             fpi_dis_df = fpi_dis_df.append(fpi_dis_cdf_to_dataframe(file_path, spacecraft))
 
-    if( len(fpi_dis_df) == 0 ):
+    if len(fpi_dis_df) == 0:
         print("Error: No valid FPI DES CDFs could be read.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        print(f'In path: {fpi_dis_directory}')
         sys.exit(-1)
 
     return fpi_dis_df
@@ -552,7 +580,7 @@ def lstm(num_features=55, layer_size=250):
     return model
 
 
-def process(start_date, end_date, base_directory_path, spacecraft):
+def process(start_date, end_date, base_directory_path, spacecraft, username, password):
     # # Define MMS CDF directory location
     # Load model
     print("\nLoading model.")
@@ -561,7 +589,7 @@ def process(start_date, end_date, base_directory_path, spacecraft):
 
     # Load data
     print("\nLoading data:")
-    data = concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft)
+    data = concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft, username, password)
 
     # Interpolate interior values, drop outside rows containing 0s
     print("\nInterpolating NaNs.")
@@ -614,12 +642,14 @@ def main():
         start_date = datetime.datetime.strptime(str(sys.argv[1]), "%Y-%m-%dT%H:%M:%S")
         end_date = datetime.datetime.strptime(str(sys.argv[2]), "%Y-%m-%dT%H:%M:%S")
         spacecraft = str(sys.argv[3])
+        username = str(sys.argv[4])
+        password = str(sys.argv[5])
     except ValueError as e:
         print("Error: Input datetime not in correct format.")
         print(f"{e}")
         sys.exit(-1)
     except IndexError:
-        print(f"Not enough command line arguments. Expected 3, got {len(sys.argv)}")
+        print(f"Not enough command line arguments. Expected 5, got {len(sys.argv)}")
         print("Usage: processor.py start_date end_date spacecraft")
         sys.exit(-1)
 
@@ -636,9 +666,9 @@ def main():
         os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'  # Error workaround for running on Mac OS
         base_directory_path = Path('/Users/colinrsmall/Documents/GitHub/sitl-downloader/mms_api_downloads')
     else:  # Assume processor is being run at SDC
-        base_directory_path = Path(f'/mms/data/')
+        base_directory_path = Path('/')
 
-    process(start_date, end_date, base_directory_path, spacecraft)
+    process(start_date, end_date, base_directory_path, spacecraft, username, password)
 
 
 main()
