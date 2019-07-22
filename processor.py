@@ -81,6 +81,7 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
     """
 
     # Open afg CDF
+    print(str(afg_cdf_path))
     afg_cdf = pycdf.CDF(str(afg_cdf_path))
 
     # Create afg dataframe with indexed by the CDF's Epoch
@@ -102,12 +103,12 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
                                                              afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'])
 
         # Compute Bz quality
-        # M = 2
-        # smoothed_data = [afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'][0]]
-        # for i, value in enumerate([afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx']], 1):
-        #     smoothed_data.append((smoothed_data[i - 1] * (2 ** M - 1) + value) / 2 ** M)
-        # diff = np.subtract(afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'], smoothed_data)
-        # afg_df[f'{spacecraft}_afg_Bz_Q'] = np.sqrt(diff.dot(diff))
+        M = 2
+        smoothed_data = [afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'][0]]
+        for i, value in enumerate(afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'][1:]):
+            smoothed_data.append((smoothed_data[i - 1] * (2 ** M - 1) + value) / 2 ** M)
+        diff = np.subtract(afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'], smoothed_data)
+        afg_df[f'{spacecraft}_afg_Bz_Q'] = np.absolute(diff)
 
     except KeyError as e:
         print(f"\n{e}")
@@ -179,6 +180,22 @@ def fpi_des_cdf_to_dataframe(fpi_des_cdf_path, spacecraft):
                            fpi_des_df[f'{spacecraft}_des_prestensor_dbcs_fast_x1_y1']
         fpi_des_df[f'{spacecraft}_des_scalar_pressure'] = prestensor_trace / 3
 
+        M = 2
+        # Compute N quality
+        smoothed_data = [fpi_des_df[f'{spacecraft}_des_numberdensity_fast'][0]]
+        for i, value in enumerate(fpi_des_df[f'{spacecraft}_des_numberdensity_fast'][1:]):
+            smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
+        diff = np.subtract(fpi_des_df[f'{spacecraft}_des_numberdensity_fast'], smoothed_data)
+        fpi_des_df[f'{spacecraft}_des_N_Q'] = np.absolute(diff)
+
+        # Compute Vz quality
+        Vz = fpi_des_cdf[f'{spacecraft}_des_bulkv_dbcs_fast'][:,2]
+        smoothed_data = [Vz[0]]
+        for i, value in enumerate(Vz[1:]):
+            smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
+        diff = np.subtract(Vz, smoothed_data)
+        fpi_des_df[f'{spacecraft}_des_Vz_Q'] = np.absolute(diff)
+
     except KeyError as e:
         print(f"\n{e}")
         print(f"For {fpi_des_cdf_path}. Skipping file.\n")
@@ -238,21 +255,30 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path, spacecraft):
         fpi_dis_df[f'{spacecraft}_dis_scalar_temperature'] = (fpi_dis_df[f'{spacecraft}_dis_temppara_fast'] +
                                                               2 * fpi_dis_df[f'{spacecraft}_dis_tempperp_fast']) / 3
 
-        # # Compute N quality
-        # M = 2
-        # smoothed_data = [afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'][0]]
-        # for i, value in enumerate([afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx']], 1):
-        #     smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
-        # diff = np.subtract(afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'], smoothed_data)
-        # afg_df[f'{spacecraft}_afg_Bz_Q'] = np.sqrt(diff.dot(diff))
-        #
-        # # Compute Vz quality
-        # M = 2
-        # smoothed_data = [afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'][0]]
-        # for i, value in enumerate([afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx']], 1):
-        #     smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
-        # diff = np.subtract(afg_df[f'{spacecraft}_afg_srvy_dmpa_Bx'], smoothed_data)
-        # afg_df[f'{spacecraft}_afg_Bz_Q'] = np.sqrt(diff.dot(diff))
+        # Compute N quality
+        M = 2
+        smoothed_data = [fpi_dis_df[f'{spacecraft}_dis_numberdensity_fast'][0]]
+        for i, value in enumerate(fpi_dis_df[f'{spacecraft}_dis_numberdensity_fast'][1:]):
+            smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
+        diff = np.subtract(fpi_dis_df[f'{spacecraft}_dis_numberdensity_fast'], smoothed_data)
+        fpi_dis_df[f'{spacecraft}_dis_N_Q'] = np.absolute(diff)
+
+        # Compute Vz quality
+        Vz = fpi_dis_cdf[f'{spacecraft}_dis_bulkv_dbcs_fast'][:,2]
+        smoothed_data = [Vz[0]]
+        for i, value in enumerate(Vz[1:]):
+            smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
+        diff = np.subtract(Vz, smoothed_data)
+        fpi_dis_df[f'{spacecraft}_dis_Vz_Q'] = np.absolute(diff)
+
+        # Compute n|V| quality
+        V = np.sqrt([ m[0]**2 + m[1]**2 + m[2]**2 for m in fpi_dis_cdf['mms1_dis_bulkv_dbcs_fast'][...]])
+        nV = np.multiply(fpi_dis_cdf['mms1_dis_numberdensity_fast'], V)
+        smoothed_data = [Vz[0]]
+        for i, value in enumerate(nV[1:]):
+            smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
+        diff = np.subtract(nV, smoothed_data)
+        fpi_dis_df[f'{spacecraft}_dis_nV_Q'] = np.absolute(diff)
 
     except KeyError as e:
         print(f"\n{e}")
@@ -602,7 +628,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
 
     # Scale data
     print("\nScaling data.")
-    scaler = pickle.load(open('scaler.sav', 'rb'))
+    scaler = pickle.load(open('model/scaler.sav', 'rb'))
     data = scaler.transform(data)
 
     # Run data through model
@@ -649,13 +675,14 @@ def main():
         print(f"{e}")
         sys.exit(-1)
     except IndexError:
-        print(f"Not enough command line arguments. Expected 5, got {len(sys.argv)}")
+        print(f"Not enough command line arguments. Expected 6, got {len(sys.argv)}")
         print("Usage: processor.py start_date end_date spacecraft")
         sys.exit(-1)
 
     # Error handling
     if len(sys.argv) > 3:
-        print(f"Soft Error: Too many command line arguments entered. Expected 3, got {len(sys.argv)}.")
+        print(f"Soft Error: Too many command line arguments entered. Expected 5, got {len(sys.argv)}.")
+        print("Usage: processor.py start_date end_date spacecraft")
         print("Continuing.")
 
     if spacecraft not in ["mms1", "mms2", "mms3", "mms4"]:
