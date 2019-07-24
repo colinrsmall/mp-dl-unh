@@ -587,7 +587,7 @@ def f1(y_true, y_pred):
     return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
 
 
-def lstm(num_features=55, layer_size=250):
+def lstm(num_features=123, layer_size=300):
     """ Helper function to define the LSTM used to make predictions.
 
     """
