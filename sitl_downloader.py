@@ -1,32 +1,22 @@
-""" Generate SITL selections from NASA MMS1 spacecraft data.
+""" Helper file for downloading SITL selections."""
 
-"""
-
-import datetime
-import os
-import pickle
-import sys
-from pathlib import Path
-
-import numpy as np
 import pandas as pd
+import numpy as np
 import requests
-import scipy.constants
-from keras import backend as K
+from bs4 import BeautifulSoup
+from pathlib import Path
 from spacepy import pycdf
-from tensorflow.keras.layers import Dense, Dropout, LSTM, Bidirectional, TimeDistributed
-from tensorflow.keras.models import Sequential
-from sitl_downloader import download
+import re
+import os
+import scipy.constants
+import sys
+import datetime
+import pickle
+import gc
+from tqdm import tqdm
 
-__author__ = "Colin Small"
-__copyright__ = "Copyright 2019"
-__credits__ = ["Colin Small", "Matthew Argall", "Marek Petrik"]
-__version__ = "1.0"
-__email__ = "crs1031@wildcats.unh.edu"
-__status__ = "Production"
 
 BASE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
-
 
 def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument, data_level, data_rate_mode, username,
               password,
@@ -57,7 +47,7 @@ def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument,
     if descriptor is not None:
         request_url += f"&descriptor={descriptor}"
 
-    request = requests.get(request_url, timeout=2, auth=(username, password))
+    request = requests.get(request_url, timeout=10, auth=(username, password))
     request.raise_for_status()
 
     paths_string_list = request.text.split(",")
@@ -66,6 +56,96 @@ def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument,
 
     return paths_list
 
+
+def download_all_selections():
+    """
+    Download all SITL selection files from the SDC.
+    """
+
+    print("Downloading SITL selection files from SDC:")
+
+    files_url = 'http://mmssitl.sr.unh.edu/sitl/'
+    files_request = requests.get(files_url)
+
+    # Check request status, quit if bad
+    if files_request.status_code != requests.codes.ok:
+        print("Unable to connect to SDC: code {}".format(files_request.status_code))
+        return
+
+    files_html = BeautifulSoup(files_request.content, features='lxml')
+    files = [link['href'] for link in files_html.findAll('a', href=re.compile('sitl_\d+.csv'))]
+
+    folder_path = Path(BASE_DIR / 'downloads')
+    folder_path.mkdir(parents=True, exist_ok=True)
+
+    for file_url in files:
+        file_name = file_url.split('/')[-1]
+        file_local_path = Path(BASE_DIR / 'downloads' / file_name)
+
+        if not file_local_path.is_file():
+            file = requests.get(files_url + file_url)
+            with file_local_path.open('w') as f:
+                f.write(file.text)
+                file.close()
+
+
+def concatenate_selection_files(files_path=Path(BASE_DIR / 'downloads')):
+    """
+    Concatenate all downloaded SITL selections into one CSV.
+
+    Args:
+        files_path: Path to the download location of SITL selections
+
+    Returns:
+        DataFrame: Concatenated list of all selections
+    """
+
+    print("Concatenating selections.")
+
+    files = [x for x in files_path.iterdir() if x.is_file()]
+
+    return pd.concat((pd.read_csv(f, infer_datetime_format=True, parse_dates=[0, 1], header=0) for f in files),
+                     ignore_index=True, sort=False).sort_values(by='start_t')
+
+
+def merge_selections(mms_data_path=BASE_DIR / 'mms_data' / 'mms_data.csv',
+                     selections_path=BASE_DIR / 'export' / 'all_selections.csv',
+                     mms_dataframe=None):
+    """
+    Merges the MMS data and the SITL selections into a single DataFrame.
+
+    Args:
+        mms_data_path: File path to MMS data csv
+        selections_path: File path to SITL selections csv
+        mms_dataframe: Optional argument to pass in a dataframe instead of using a saved .csv.
+
+    Returns:
+        Returns a DataFrame equivalent to the MMS data with an additional column denoting whether or not an observation
+        was selected by the SITL.
+    """
+
+    print("Merging selections.")
+
+    if mms_dataframe is None:
+        mms_data = pd.read_csv(mms_data_path, infer_datetime_format=True, parse_dates=[0], index_col=0)
+    else:
+        mms_data = mms_dataframe
+
+    selections = pd.read_csv(selections_path, infer_datetime_format=True, parse_dates=[0, 1])
+    selections.dropna()
+    selections = selections[selections['comments'].str.contains("MP", na=False)]
+
+    # Create column to denote whether an observation is selected by SITLs
+    mms_data['selected'] = False
+
+    # Set selected to be True if the observation is in a date range of a selection
+    date_col = mms_data.index
+    cond_series = mms_data['selected']
+    for start, end in zip(selections['start_t'], selections['end_t']):
+        cond_series |= (start <= date_col) & (date_col <= end)
+    mms_data.loc[cond_series, 'selected'] = True
+
+    return mms_data
 
 def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
     """ Converts AFG CDF to a Pandas dataframe.
@@ -82,7 +162,6 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
     """
 
     # Open afg CDF
-    print(str(afg_cdf_path))
     afg_cdf = pycdf.CDF(str(afg_cdf_path))
 
     # Create afg dataframe with indexed by the CDF's Epoch
@@ -347,8 +426,11 @@ def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft, u
     """
 
     fpi_des_df = merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password)
+
     fpi_dis_df = merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password)
+
     afg_df = merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password)
+
     edp_df = merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, username, password)
 
     # Drop duplicate index entries
@@ -381,9 +463,9 @@ def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft, u
 
     # Merge dataframes
     merged_df = fpi_des_df
-    merged_df.join(fpi_dis_df, how='outer')
-    merged_df.join(afg_df, how='outer')
-    merged_df.join(edp_df, how='outer')
+    merged_df = merged_df.join(fpi_dis_df, how='outer')
+    merged_df = merged_df.join(afg_df, how='outer')
+    merged_df = merged_df.join(edp_df, how='outer')
 
     # Computer other metaproperties
     merged_df[f'{spacecraft}_temp_ratio'] = fpi_dis_df[f'{spacecraft}_dis_scalar_temperature'] / fpi_dis_df[
@@ -419,7 +501,7 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, 
     print("\n   Merging EDP dataframes.")
 
     edp_df = None
-    for file_path in edp_cdf_list:
+    for file_path in tqdm(edp_cdf_list):
         if edp_df is None:
             edp_df = edp_cdf_to_dataframe(file_path, spacecraft)
         else:
@@ -457,7 +539,7 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
     print("\n   Merging FPI DES dataframes.")
 
     fpi_des_df = None
-    for file_path in fpi_des_cdf_list:
+    for file_path in tqdm(fpi_des_cdf_list):
         if fpi_des_df is None:
             fpi_des_df = fpi_des_cdf_to_dataframe(file_path, spacecraft)
         else:
@@ -495,7 +577,7 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, 
     print("\n   Merging AFG dataframes.")
 
     afg_df = None
-    for file_path in afg_cdf_list:
+    for file_path in tqdm(afg_cdf_list):
         if afg_df is None:
             afg_df = afg_cdf_to_dataframe(file_path, spacecraft)
         else:
@@ -533,7 +615,7 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
     print("\n   Merging FPI DIS dataframes.")
 
     fpi_dis_df = None
-    for file_path in fpi_dis_cdf_list:
+    for file_path in tqdm(fpi_dis_cdf_list):
         if fpi_dis_df is None:
             fpi_dis_df = fpi_dis_cdf_to_dataframe(file_path, spacecraft)
         else:
@@ -547,158 +629,13 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
     return fpi_dis_df
 
 
-def f1(y_true, y_pred):
-    """ Helper function for calculating the f1 score needed for importing the TF Keras model.
-
-    Args:
-        y_true: A tensor with ground truth values.
-        y_pred: A tensor with predicted truth values.
-
-    Returns:
-        A float with the f1 score of the two tensors.
+def download(BASE_DIR, start_date, end_date, spacecraft):
     """
-
-    def recall(y_true, y_pred):
-        """Recall metric.
-
-        Only computes a batch-wise average of recall.
-
-        Computes the recall, a metric for multi-label classification of
-        how many relevant items are selected.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-        return true_positives / (possible_positives + K.epsilon())
-
-    def precision(y_true, y_pred):
-        """Precision metric.
-
-        Only computes a batch-wise average of precision.
-
-        Computes the precision, a metric for multi-label classification of
-        how many selected items are relevant.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-        return true_positives / (predicted_positives + K.epsilon())
-
-    precision = precision(y_true, y_pred)
-    recall = recall(y_true, y_pred)
-    return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
-
-
-def lstm(num_features=55, layer_size=250):
-    """ Helper function to define the LSTM used to make predictions.
-
+    Used only for mp-dl-unh
     """
-    model = Sequential()
+    download_all_selections()
+    df = concatenate_all_cdf(start_date, end_date, BASE_DIR/'mms_api_downloads', spacecraft=spacecraft,
+                             username=sys.argv[4], password=sys.argv[5])
+    df = merge_selections(mms_dataframe=df)
+    return df
 
-    model.add(Bidirectional(LSTM(layer_size, return_sequences=True, activation='tanh', recurrent_activation='sigmoid'),
-                            input_shape=(None, num_features)))
-
-    model.add(Dropout(0.4))
-
-    model.add(Bidirectional(LSTM(layer_size, return_sequences=True, activation='tanh', recurrent_activation='sigmoid')))
-
-    model.add(Dropout(0.4))
-
-    model.add(TimeDistributed(Dense(1, activation='sigmoid')))
-
-    return model
-
-
-def process(start_date, end_date, base_directory_path, spacecraft, username, password):
-    # # Define MMS CDF directory location
-    # Load model
-    print("\nLoading model.")
-    model = lstm()
-    model.load_weights('model/model_weights.h5')
-
-    # Load data
-    print("\nLoading data:")
-    data = concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft, username, password)
-
-    # Interpolate interior values, drop outside rows containing 0s
-    print("\nInterpolating NaNs.")
-    data = data.interpolate(method='time', limit_area='inside')
-    data = data.loc[(data != 0).any(axis=1)]
-
-    # Select data within time range
-    data = data.loc[start_date:end_date]
-    data_index = data.index
-
-    # Scale data
-    print("\nScaling data.")
-    scaler = pickle.load(open('model/scaler.sav', 'rb'))
-    data = scaler.transform(data)
-
-    # Run data through model
-    print("\nGenerating selection predictions.")
-    predictions_list = model.predict(np.expand_dims(data, axis=0))
-
-    # Filter predictions with threshold
-    threshold = 0.5
-    filtered_output = [0 if x < threshold else 1 for x in predictions_list.squeeze()]
-
-    # Create selections from predictions
-    predictions_df = pd.DataFrame()
-    predictions_df.insert(0, "time", data_index)
-    predictions_df.insert(1, "prediction", filtered_output)
-    predictions_df['group'] = (predictions_df.prediction != predictions_df.prediction.shift()).cumsum()
-    predictions_df = predictions_df.loc[predictions_df['prediction'] is True]
-    selections = pd.DataFrame({'BeginDate': predictions_df.groupby('group').time.first(),
-                               'EndDate': predictions_df.groupby('group').time.last()})
-    selections = selections.set_index('BeginDate')
-    selections['score'] = "Selection score not yet implemented"
-    selections['score'] = "Selection description not yet implemented - this is an auto generated description"
-
-    # Output selections
-    print("Saving selections to CSV.")
-
-    if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
-        selections.to_csv(
-            f'gl-mp-unh_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv',
-            header=False)
-    else:  # Assume the processor is being run at the SDC
-        selections.to_csv(
-            f'~/dropbox/{spacecraft}/gl-mp-unh_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv', header=False)
-
-
-def main():
-    try:
-        start_date = datetime.datetime.strptime(str(sys.argv[1]), "%Y-%m-%dT%H:%M:%S")
-        end_date = datetime.datetime.strptime(str(sys.argv[2]), "%Y-%m-%dT%H:%M:%S")
-        spacecraft = str(sys.argv[3])
-        username = str(sys.argv[4])
-        password = str(sys.argv[5])
-    except ValueError as e:
-        print("Error: Input datetime not in correct format.")
-        print(f"{e}")
-        sys.exit(-1)
-    except IndexError:
-        print(f"Not enough command line arguments. Expected 6, got {len(sys.argv)}")
-        print("Usage: processor.py start_date end_date spacecraft")
-        sys.exit(-1)
-
-    # Error handling
-    if len(sys.argv) > 3:
-        print(f"Soft Error: Too many command line arguments entered. Expected 5, got {len(sys.argv)}.")
-        print("Usage: processor.py start_date end_date spacecraft")
-        print("Continuing.")
-
-    if spacecraft not in ["mms1", "mms2", "mms3", "mms4"]:
-        print("Error: Invalid spacecraft entered.")
-        print(f'Expected one of [ "mms1", "mms2", "mms3", "mms4" ], got {spacecraft}.')
-
-    if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
-        os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'  # Error workaround for running on Mac OS
-        base_directory_path = Path('/Users/colinrsmall/Documents/GitHub/sitl-downloader/mms_api_downloads')
-    else:  # Assume processor is being run at SDC
-        base_directory_path = Path('/')
-
-    process(start_date, end_date, base_directory_path, spacecraft, username, password)
-
-    print("Done")
-
-
-main()
