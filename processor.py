@@ -381,9 +381,9 @@ def concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft, u
 
     # Merge dataframes
     merged_df = fpi_des_df
-    merged_df.join(fpi_dis_df, how='outer')
-    merged_df.join(afg_df, how='outer')
-    merged_df.join(edp_df, how='outer')
+    merged_df = merged_df.join(fpi_dis_df, how='outer')
+    merged_df = merged_df.join(afg_df, how='outer')
+    merged_df = merged_df.join(edp_df, how='outer')
 
     # Computer other metaproperties
     merged_df[f'{spacecraft}_temp_ratio'] = fpi_dis_df[f'{spacecraft}_dis_scalar_temperature'] / fpi_dis_df[
@@ -645,7 +645,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
     predictions_df.insert(0, "time", data_index)
     predictions_df.insert(1, "prediction", filtered_output)
     predictions_df['group'] = (predictions_df.prediction != predictions_df.prediction.shift()).cumsum()
-    predictions_df = predictions_df.loc[predictions_df['prediction'] is True]
+    predictions_df = predictions_df.loc[predictions_df['prediction'] == 1]
     selections = pd.DataFrame({'BeginDate': predictions_df.groupby('group').time.first(),
                                'EndDate': predictions_df.groupby('group').time.last()})
     selections = selections.set_index('BeginDate')
