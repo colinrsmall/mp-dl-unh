@@ -83,7 +83,12 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
 
     # Open afg CDF
     print(str(afg_cdf_path))
-    afg_cdf = pycdf.CDF(str(afg_cdf_path))
+    try:
+        afg_cdf = pycdf.CDF(str(afg_cdf_path))
+    except pycdf.CDFError as e:
+        print(e)
+        print(f"File path: {afg_cdf_path}")
+        sys.exit(-1)
 
     # Create afg dataframe with indexed by the CDF's Epoch
     afg_df = pd.DataFrame()
@@ -146,7 +151,12 @@ def fpi_des_cdf_to_dataframe(fpi_des_cdf_path, spacecraft):
     fpi_des_var_list_3d = [f'{spacecraft}_des_prestensor_dbcs_fast', f'{spacecraft}_des_temptensor_dbcs_fast']
 
     # Open FPI DES CDF
-    fpi_des_cdf = pycdf.CDF(str(fpi_des_cdf_path))
+    try:
+        fpi_des_cdf = pycdf.CDF(str(fpi_des_cdf_path))
+    except pycdf.CDFError as e:
+        print(e)
+        print(f"File path: {fpi_des_cdf_path}")
+        sys.exit(-1)
 
     # Create afg dataframe with indexed by the CDF's Epoch
     fpi_des_df = pd.DataFrame()
@@ -226,7 +236,12 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path, spacecraft):
     fpi_dis_var_list_3d = [f'{spacecraft}_dis_prestensor_dbcs_fast', f'{spacecraft}_dis_temptensor_dbcs_fast']
 
     # Open FPI DES CDF
-    fpi_dis_cdf = pycdf.CDF(str(fpi_dis_cdf_path))
+    try:
+        fpi_dis_cdf = pycdf.CDF(str(fpi_dis_cdf_path))
+    except pycdf.CDFError as e:
+        print(e)
+        print(f"File path: {fpi_dis_cdf_path}")
+        sys.exit(-1)
 
     # Create afg dataframe with indexed by the CDF's Epoch
     fpi_dis_df = pd.DataFrame()
@@ -303,8 +318,12 @@ def edp_cdf_to_dataframe(edp_cdf_path, spacecraft):
         A Pandas dataframe containing data from the CDF indexed by the CDF's Epoch.
     """
 
-    edp_cdf = pycdf.CDF(str(edp_cdf_path))
-
+    try:
+        edp_cdf = pycdf.CDF(str(edp_cdf_path))
+    except pycdf.CDFError as e:
+        print(e)
+        print(f"File path: {edp_cdf_path}")
+        sys.exit(-1)
     # Parse edp
     try:
         edp_df = pd.DataFrame()
@@ -657,11 +676,11 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
 
     if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
         selections.to_csv(
-            f'gl-mp-unh_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv',
+            f'gl-mp-unh_{spacecraft}_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv',
             header=False)
     else:  # Assume the processor is being run at the SDC
         selections.to_csv(
-            f'~/dropbox/{spacecraft}/gl-mp-unh_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv', header=False)
+            f'~/dropbox/gl-mp-unh_{spacecraft}_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv', header=False)
 
 
 def main():
