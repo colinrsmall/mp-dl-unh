@@ -62,13 +62,13 @@ def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument,
     request = requests.get(request_url, timeout=2, auth=(username, password))
     request.raise_for_status()
 
+    if len(request.text) == 0:
+        print(f"Error: No CDFs found for request: {request_url}")
+        sys.exit(-1)
+
     paths_string_list = request.text.split(",")
 
     paths_list = [Path(base_directory_path / Path(path)) for path in paths_string_list]
-
-    if len(paths_list) == 0:
-        print(f"No CDFs found for request: {request_url}")
-        sys.exit(-1)
 
     return paths_list
 
