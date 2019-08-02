@@ -11,12 +11,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import requests
+requests.adapters.DEFAULT_RETRIES = 5
+
 import scipy.constants
 from keras import backend as K
 from spacepy import pycdf
 from tensorflow.keras.layers import Dense, Dropout, LSTM, Bidirectional, TimeDistributed
 from tensorflow.keras.models import Sequential
-from sitl_downloader import download
+from sklearn.metrics import f1_score
 
 __author__ = "Colin Small"
 __copyright__ = "Copyright 2019"
@@ -82,7 +84,6 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
     """
 
     # Open afg CDF
-    print(str(afg_cdf_path))
     try:
         afg_cdf = pycdf.CDF(str(afg_cdf_path))
     except pycdf.CDFError as e:
@@ -626,7 +627,7 @@ def lstm(num_features=123, layer_size=300):
     return model
 
 
-def process(start_date, end_date, base_directory_path, spacecraft, username, password):
+def process(start_date, end_date, base_directory_path, spacecraft, username, password, test=False):
     # # Define MMS CDF directory location
     # Load model
     print("\nLoading model.")
@@ -639,6 +640,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
 
     # Interpolate interior values, drop outside rows containing 0s
     print("\nInterpolating NaNs.")
+    data = data.replace([np.inf, -np.inf], np.nan)
     data = data.interpolate(method='time', limit_area='inside')
     data = data.loc[(data != 0).any(axis=1)]
 
@@ -658,6 +660,10 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
     # Filter predictions with threshold
     threshold = 0.5
     filtered_output = [0 if x < threshold else 1 for x in predictions_list.squeeze()]
+
+    # Return predictions if testing
+    if test:
+        return filtered_output
 
     # Create selections from predictions
     predictions_df = pd.DataFrame()
@@ -682,8 +688,39 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
         selections.to_csv(
             f'~/dropbox/gl-mp-unh_{spacecraft}_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv', header=False)
 
+def test(test_output):
+    """
+    Test the model
+
+    mms_with_selections_2017-02-01 00:00:00_to_2017-02-28 23:59:59.csv
+    """
+    test_y = pickle.load(open('test/test_y.sav', 'rb'))
+    return f1_score(test_y.astype(int), test_output)
 
 def main():
+
+    if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
+        os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'  # Error workaround for running on Mac OS
+        base_directory_path = Path('/Users/colinrsmall/Documents/GitHub/sitl-downloader/mms_api_downloads')
+    else:  # Assume processor is being run at SDC
+        base_directory_path = Path('/')
+
+    if len(sys.argv) == 1 or sys.argv[1] in ['-h', '-help', '--h', '--help']:
+        print("Usage: processor.py start_date end_date spacecraft SDC_username SDC_password")
+        print("or")
+        print("Usage: processoy.py test SDC_username SDC_password")
+        sys.exit(0)
+
+    if sys.argv[1] == "test":
+        start_date = datetime.datetime.strptime("2017-02-01T00:00:00", "%Y-%m-%dT%H:%M:%S")
+        end_date = datetime.datetime.strptime("2017-02-10T23:59:59", "%Y-%m-%dT%H:%M:%S")
+        spacecraft = "mms1"
+        username = str(sys.argv[2])
+        password = str(sys.argv[3])
+        test_output = process(start_date, end_date, base_directory_path, spacecraft, username, password, test=True)
+        print(f"F1 score: {test(test_output)}")
+        sys.exit(0)
+
     try:
         start_date = datetime.datetime.strptime(str(sys.argv[1]), "%Y-%m-%dT%H:%M:%S")
         end_date = datetime.datetime.strptime(str(sys.argv[2]), "%Y-%m-%dT%H:%M:%S")
@@ -708,12 +745,6 @@ def main():
     if spacecraft not in ["mms1", "mms2", "mms3", "mms4"]:
         print("Error: Invalid spacecraft entered.")
         print(f'Expected one of [ "mms1", "mms2", "mms3", "mms4" ], got {spacecraft}.')
-
-    if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
-        os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'  # Error workaround for running on Mac OS
-        base_directory_path = Path('/Users/colinrsmall/Documents/GitHub/sitl-downloader/mms_api_downloads')
-    else:  # Assume processor is being run at SDC
-        base_directory_path = Path('/')
 
     process(start_date, end_date, base_directory_path, spacecraft, username, password)
 
