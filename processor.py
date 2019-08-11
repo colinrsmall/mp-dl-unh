@@ -64,7 +64,7 @@ def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument,
 
     if len(request.text) == 0:
         print(f"Error: No CDFs found for request: {request_url}")
-        sys.exit(1)
+        sys.exit(3)
 
     paths_string_list = request.text.split(",")
 
@@ -93,7 +93,7 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
     except pycdf.CDFError as e:
         print(e)
         print(f"File path: {afg_cdf_path}")
-        sys.exit(1)
+        sys.exit(3)
 
     # Create afg dataframe with indexed by the CDF's Epoch
     afg_df = pd.DataFrame()
@@ -161,7 +161,7 @@ def fpi_des_cdf_to_dataframe(fpi_des_cdf_path, spacecraft):
     except pycdf.CDFError as e:
         print(e)
         print(f"File path: {fpi_des_cdf_path}")
-        sys.exit(1)
+        sys.exit(3)
 
     # Create afg dataframe with indexed by the CDF's Epoch
     fpi_des_df = pd.DataFrame()
@@ -246,7 +246,7 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path, spacecraft):
     except pycdf.CDFError as e:
         print(e)
         print(f"File path: {fpi_dis_cdf_path}")
-        sys.exit(1)
+        sys.exit(3)
 
     # Create afg dataframe with indexed by the CDF's Epoch
     fpi_dis_df = pd.DataFrame()
@@ -328,7 +328,7 @@ def edp_cdf_to_dataframe(edp_cdf_path, spacecraft):
     except pycdf.CDFError as e:
         print(e)
         print(f"File path: {edp_cdf_path}")
-        sys.exit(1)
+        sys.exit(3)
     # Parse edp
     try:
         edp_df = pd.DataFrame()
@@ -438,7 +438,7 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, 
     if len(edp_cdf_list) == 0:
         print("Error: No CDFs found for EDP in given range.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        sys.exit(1)
+        sys.exit(3)
 
     print("\n   Merging EDP dataframes.")
 
@@ -452,7 +452,7 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, 
     if len(edp_df) == 0:
         print("Error: No valid EDP CDFs could be read.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        sys.exit(1)
+        sys.exit(3)
 
     return edp_df
 
@@ -476,7 +476,7 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
     if len(fpi_des_cdf_list) == 0:
         print("Error: No CDFs found for FPI DES in given range.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        sys.exit(1)
+        sys.exit(3)
 
     print("\n   Merging FPI DES dataframes.")
 
@@ -490,7 +490,7 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
     if len(fpi_des_df) == 0:
         print("Error: No valid FPI DES CDFs could be read.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        sys.exit(1)
+        sys.exit(3)
 
     return fpi_des_df
 
@@ -514,7 +514,7 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, 
     if len(afg_cdf_list) == 0:
         print("Error: No CDFs found for AFG in given range.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        sys.exit(1)
+        sys.exit(3)
 
     print("\n   Merging AFG dataframes.")
 
@@ -528,7 +528,7 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, 
     if len(afg_df) == 0:
         print("Error: No valid AFG CDFs could be read.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        sys.exit(1)
+        sys.exit(3)
 
     return afg_df
 
@@ -552,7 +552,7 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
     if len(fpi_dis_cdf_list) == 0:
         print("Error: No CDFs found for FPI DIS in given range.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        sys.exit(1)
+        sys.exit(3)
 
     print("\n   Merging FPI DIS dataframes.")
 
@@ -566,7 +566,7 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
     if len(fpi_dis_df) == 0:
         print("Error: No valid FPI DES CDFs could be read.")
         print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
-        sys.exit(1)
+        sys.exit(3)
 
     return fpi_dis_df
 
@@ -740,7 +740,7 @@ def main():
         print("Usage: processor.py start_date end_date spacecraft SDC_username SDC_password")
         print("or")
         print("Usage: processoy.py test SDC_username SDC_password")
-        sys.exit(2)
+        sys.exit(166)
 
     if sys.argv[1] == "test":
         start_date = datetime.datetime.strptime("2017-02-01T00:00:00", "%Y-%m-%dT%H:%M:%S")
@@ -761,11 +761,11 @@ def main():
     except ValueError as e:
         print("Error: Input datetime not in correct format.")
         print(f"{e}")
-        sys.exit(1)
+        sys.exit(166)
     except IndexError:
         print(f"Not enough command line arguments. Expected 6, got {len(sys.argv)}")
         print("Usage: processor.py start_date end_date spacecraft")
-        sys.exit(1)
+        sys.exit(166)
 
     # Error handling
     if len(sys.argv) > 3:
