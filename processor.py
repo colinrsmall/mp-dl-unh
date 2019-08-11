@@ -694,8 +694,8 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
         selections.to_csv(
             file_path+file_name, header=False)
 
-    md5_hash = get_md5(file_path+file_name)
     absolute_file_path = Path(file_path+file_name).absolute()
+    md5_hash = get_md5(absolute_file_path)
     current_datetime = datetime.datetime.now().strftime('%Y%m%d%H%M%s')
     manifest_file_name = f'mp-dl-unh_sdc_delivery_{current_datetime}.txt'
 
