@@ -769,13 +769,13 @@ def main():
         print(f"{e}")
         sys.exit(166)
     except IndexError:
-        print(f"Not enough command line arguments. Expected 6, got {len(sys.argv)}")
+        print(f"Not enough command line arguments. Expected 4, got {len(sys.argv)}")
         print("Usage: processor.py start_date end_date spacecraft")
         sys.exit(166)
 
     # Error handling
-    if len(sys.argv) > 3:
-        print(f"Soft Error: Too many command line arguments entered. Expected 5, got {len(sys.argv)}.")
+    if len(sys.argv) > 4:
+        print(f"Soft Error: Too many command line arguments entered. Expected 4, got {len(sys.argv)}.")
         print("Usage: processor.py start_date end_date spacecraft")
         print("Continuing.")
 
