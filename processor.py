@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import requests
 requests.adapters.DEFAULT_RETRIES = 5
+import configparser
 
 import scipy.constants
 from keras import backend as K
@@ -69,6 +70,7 @@ def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument,
     paths_string_list = request.text.split(",")
 
     paths_list = [Path(base_directory_path / Path(path)) for path in paths_string_list]
+    print(paths_list)
 
     return paths_list
 
@@ -742,6 +744,11 @@ def main():
         print("Usage: processoy.py test SDC_username SDC_password")
         sys.exit(166)
 
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+    username = config["LOGIN CREDENTIALS"]["username"]
+    password = config["LOGIN CREDENTIALS"]["password"]
+
     if sys.argv[1] == "test":
         start_date = datetime.datetime.strptime("2017-02-01T00:00:00", "%Y-%m-%dT%H:%M:%S")
         end_date = datetime.datetime.strptime("2017-02-10T23:59:59", "%Y-%m-%dT%H:%M:%S")
@@ -756,8 +763,7 @@ def main():
         start_date = datetime.datetime.strptime(str(sys.argv[1]), "%Y-%m-%dT%H:%M:%S")
         end_date = datetime.datetime.strptime(str(sys.argv[2]), "%Y-%m-%dT%H:%M:%S")
         spacecraft = str(sys.argv[3])
-        username = str(sys.argv[4])
-        password = str(sys.argv[5])
+
     except ValueError as e:
         print("Error: Input datetime not in correct format.")
         print(f"{e}")

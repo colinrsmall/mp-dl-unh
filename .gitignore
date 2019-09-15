@@ -196,3 +196,6 @@ export/
 mms_data/
 mms_api_downloads/
 *.csv
+config.ini
+
+mp-dl-unh_sdc_delivery_*.txt
