@@ -439,7 +439,7 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, 
 
     if len(edp_cdf_list) == 0:
         print("Error: No CDFs found for EDP in given range.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
         sys.exit(3)
 
     print("\n   Merging EDP dataframes.")
@@ -453,7 +453,7 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, 
 
     if len(edp_df) == 0:
         print("Error: No valid EDP CDFs could be read.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
         sys.exit(3)
 
     return edp_df
@@ -477,7 +477,7 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
 
     if len(fpi_des_cdf_list) == 0:
         print("Error: No CDFs found for FPI DES in given range.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%dT")}')
         sys.exit(3)
 
     print("\n   Merging FPI DES dataframes.")
@@ -491,7 +491,7 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
 
     if len(fpi_des_df) == 0:
         print("Error: No valid FPI DES CDFs could be read.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
         sys.exit(3)
 
     return fpi_des_df
@@ -515,7 +515,7 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, 
 
     if len(afg_cdf_list) == 0:
         print("Error: No CDFs found for AFG in given range.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
         sys.exit(3)
 
     print("\n   Merging AFG dataframes.")
@@ -529,7 +529,7 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, 
 
     if len(afg_df) == 0:
         print("Error: No valid AFG CDFs could be read.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
         sys.exit(3)
 
     return afg_df
@@ -553,7 +553,7 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
 
     if len(fpi_dis_cdf_list) == 0:
         print("Error: No CDFs found for FPI DIS in given range.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
         sys.exit(3)
 
     print("\n   Merging FPI DIS dataframes.")
@@ -567,7 +567,7 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
 
     if len(fpi_dis_df) == 0:
         print("Error: No valid FPI DES CDFs could be read.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%dT%H:%M:%S")} to {end_date.strftime("%Y-%m-%dT%H:%M:%S")}')
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
         sys.exit(3)
 
     return fpi_dis_df
@@ -686,7 +686,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
     # Output selections
     print("Saving selections to CSV.")
 
-    file_name = f'gl-mp-unh_{spacecraft}_{start_date.strftime("%Y-%m-%dT%H:%M:%S")}_{end_date.strftime("%Y-%m-%dT%H:%M:%S")}.csv'
+    file_name = f'gl-mp-unh_{spacecraft}_{start_date.strftime("%Y-%m-%d")}_{end_date.strftime("%Y-%m-%d")}.csv'
     if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
         file_path = f''
         selections.to_csv(
