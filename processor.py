@@ -651,7 +651,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
     data = data.loc[(data != 0).any(axis=1)]
 
     # Select data within time range
-    data = data.loc[start_date:end_date]
+    #data = data.loc[start_date:end_date]
     data_index = data.index
 
     # Scale data
@@ -760,8 +760,8 @@ def main():
         sys.exit(0)
 
     try:
-        start_date = datetime.datetime.strptime(str(sys.argv[1]), "%Y-%m-%dT%H:%M:%S")
-        end_date = datetime.datetime.strptime(str(sys.argv[2]), "%Y-%m-%dT%H:%M:%S")
+        start_date = datetime.datetime.strptime(str(sys.argv[1]), "%Y-%m-%d")
+        end_date = datetime.datetime.strptime(str(sys.argv[2]), "%Y-%m-%d")
         spacecraft = str(sys.argv[3])
 
     except ValueError as e:
