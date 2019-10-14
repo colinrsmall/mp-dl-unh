@@ -6,7 +6,7 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then # assume sript is run at the SDC
     echo "\n mp-dl-unh job created at 'date'"
     export PATH=/tools/anaconda3.2018.12/bin
     export PYTHONPATH=/tools/anaconda3.2018.12/lib/python3.6/site-packages
-    python3 processor.py $1 $2 mms1 > log.log
+    python3 processor.py $1 $2 mms1 > ~/logs/mp-dl.unh.log
 
 elif [[ "$OSTYPE" == "darwin19" ]]; then # assume script is run on Colin Small's laptop
     echo "\n mp-dl-unh job created at 'date'" >> mp-dl-unh_log.log
