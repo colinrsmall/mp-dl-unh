@@ -21,6 +21,8 @@ from spacepy import pycdf
 from tensorflow.keras.layers import Dense, Dropout, LSTM, Bidirectional, TimeDistributed
 from tensorflow.keras.models import Sequential
 
+from tai import utc2tai
+
 __author__ = "Colin Small"
 __copyright__ = "Copyright 2019"
 __credits__ = ["Colin Small", "Matthew Argall", "Marek Petrik"]
@@ -64,13 +66,12 @@ def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument,
     request.raise_for_status()
 
     if len(request.text) == 0:
-        print(f"Error: No CDFs found for request: {request_url}")
+        print(f"Error: No CDFs found for request: {request_url} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         sys.exit(3)
 
     paths_string_list = request.text.split(",")
 
     paths_list = [Path(base_directory_path / Path(path)) for path in paths_string_list]
-    print(paths_list)
 
     return paths_list
 
@@ -93,8 +94,8 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
     try:
         afg_cdf = pycdf.CDF(str(afg_cdf_path))
     except pycdf.CDFError as e:
-        print(e)
-        print(f"File path: {afg_cdf_path}")
+        print(f"e | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f"File path: {afg_cdf_path} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         sys.exit(3)
 
     # Create afg dataframe with indexed by the CDF's Epoch
@@ -124,8 +125,8 @@ def afg_cdf_to_dataframe(afg_cdf_path, spacecraft):
         afg_df[f'{spacecraft}_afg_Bz_Q'] = np.absolute(diff)
 
     except KeyError as e:
-        print(f"\n{e}")
-        print(f"For {afg_cdf_path}. Skipping file.\n")
+        print(f"{e} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f"For {afg_cdf_path}. Skipping file. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         return pd.DataFrame()
 
     # Compute metaproperties
@@ -161,8 +162,8 @@ def fpi_des_cdf_to_dataframe(fpi_des_cdf_path, spacecraft):
     try:
         fpi_des_cdf = pycdf.CDF(str(fpi_des_cdf_path))
     except pycdf.CDFError as e:
-        print(e)
-        print(f"File path: {fpi_des_cdf_path}")
+        print(f"{e} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f"File path: {fpi_des_cdf_path} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         sys.exit(3)
 
     # Create afg dataframe with indexed by the CDF's Epoch
@@ -215,8 +216,8 @@ def fpi_des_cdf_to_dataframe(fpi_des_cdf_path, spacecraft):
         fpi_des_df[f'{spacecraft}_des_Vz_Q'] = np.absolute(diff)
 
     except KeyError as e:
-        print(f"\n{e}")
-        print(f"For {fpi_des_cdf_path}. Skipping file.\n")
+        print(f"{e} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f"For {fpi_des_cdf_path}. Skipping file. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         return pd.DataFrame()
 
     return fpi_des_df
@@ -246,8 +247,8 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path, spacecraft):
     try:
         fpi_dis_cdf = pycdf.CDF(str(fpi_dis_cdf_path))
     except pycdf.CDFError as e:
-        print(e)
-        print(f"File path: {fpi_dis_cdf_path}")
+        print(f"{e} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f"File path: {fpi_dis_cdf_path} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         sys.exit(3)
 
     # Create afg dataframe with indexed by the CDF's Epoch
@@ -304,8 +305,8 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path, spacecraft):
         fpi_dis_df[f'{spacecraft}_dis_nV_Q'] = np.absolute(diff)
 
     except KeyError as e:
-        print(f"\n{e}")
-        print(f"For {fpi_dis_cdf_path}. Skipping file.\n")
+        print(f"{e} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f"For {fpi_dis_cdf_path}. Skipping file. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         return pd.DataFrame()
 
     return fpi_dis_df
@@ -328,8 +329,8 @@ def edp_cdf_to_dataframe(edp_cdf_path, spacecraft):
     try:
         edp_cdf = pycdf.CDF(str(edp_cdf_path))
     except pycdf.CDFError as e:
-        print(e)
-        print(f"File path: {edp_cdf_path}")
+        print(f"{e}  | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f"File path: {edp_cdf_path} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         sys.exit(3)
     # Parse edp
     try:
@@ -347,8 +348,8 @@ def edp_cdf_to_dataframe(edp_cdf_path, spacecraft):
                 f'{spacecraft}_edp_z'] ** 2)
 
     except KeyError as e:
-        print(f"\n{e}")
-        print(f"For {edp_cdf_path}. Skipping file.\n")
+        print(f"{e} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f"For {edp_cdf_path}. Skipping file. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         return pd.DataFrame()
 
     return edp_df
@@ -438,11 +439,11 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, 
                              username, password, "dce")
 
     if len(edp_cdf_list) == 0:
-        print("Error: No CDFs found for EDP in given range.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
+        print(f"Error: No CDFs found for EDP in given range. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} | {datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}')
         sys.exit(3)
 
-    print("\n   Merging EDP dataframes.")
+    print(f"   Merging EDP dataframes. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
 
     edp_df = None
     for file_path in edp_cdf_list:
@@ -452,8 +453,8 @@ def merge_edp_dataframes(start_date, end_date, base_directory_path, spacecraft, 
             edp_df = edp_df.append(edp_cdf_to_dataframe(file_path, spacecraft))
 
     if len(edp_df) == 0:
-        print("Error: No valid EDP CDFs could be read.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
+        print(f"Error: No valid EDP CDFs could be read. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} | {datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}')
         sys.exit(3)
 
     return edp_df
@@ -476,11 +477,11 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
                                  username, password, "des")
 
     if len(fpi_des_cdf_list) == 0:
-        print("Error: No CDFs found for FPI DES in given range.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%dT")}')
+        print(f"Error: No CDFs found for FPI DES in given range. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%dT")} | {datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}')
         sys.exit(3)
 
-    print("\n   Merging FPI DES dataframes.")
+    print(f"   Merging FPI DES dataframes. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
 
     fpi_des_df = None
     for file_path in fpi_des_cdf_list:
@@ -490,8 +491,8 @@ def merge_fpi_des_dataframes(start_date, end_date, base_directory_path, spacecra
             fpi_des_df = fpi_des_df.append(fpi_des_cdf_to_dataframe(file_path, spacecraft))
 
     if len(fpi_des_df) == 0:
-        print("Error: No valid FPI DES CDFs could be read.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
+        print(f"Error: No valid FPI DES CDFs could be read. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} | {datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}')
         sys.exit(3)
 
     return fpi_des_df
@@ -514,11 +515,11 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, 
                              password)
 
     if len(afg_cdf_list) == 0:
-        print("Error: No CDFs found for AFG in given range.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
+        print(f"Error: No CDFs found for AFG in given range. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} | {datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}')
         sys.exit(3)
 
-    print("\n   Merging AFG dataframes.")
+    print(f"   Merging AFG dataframes. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
 
     afg_df = None
     for file_path in afg_cdf_list:
@@ -528,8 +529,8 @@ def merge_afg_dataframes(start_date, end_date, base_directory_path, spacecraft, 
             afg_df = afg_df.append(afg_cdf_to_dataframe(file_path, spacecraft))
 
     if len(afg_df) == 0:
-        print("Error: No valid AFG CDFs could be read.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
+        print(f"Error: No valid AFG CDFs could be read. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} | {datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}')
         sys.exit(3)
 
     return afg_df
@@ -552,11 +553,11 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
                                  username, password, "dis")
 
     if len(fpi_dis_cdf_list) == 0:
-        print("Error: No CDFs found for FPI DIS in given range.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
+        print(f"Error: No CDFs found for FPI DIS in given range. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} | {datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}')
         sys.exit(3)
 
-    print("\n   Merging FPI DIS dataframes.")
+    print(f"   Merging FPI DIS dataframes. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
 
     fpi_dis_df = None
     for file_path in fpi_dis_cdf_list:
@@ -566,8 +567,8 @@ def merge_fpi_dis_dataframes(start_date, end_date, base_directory_path, spacecra
             fpi_dis_df = fpi_dis_df.append(fpi_dis_cdf_to_dataframe(file_path, spacecraft))
 
     if len(fpi_dis_df) == 0:
-        print("Error: No valid FPI DES CDFs could be read.")
-        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
+        print(f"Error: No valid FPI DES CDFs could be read. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f'For date range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} | {datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}')
         sys.exit(3)
 
     return fpi_dis_df
@@ -632,35 +633,59 @@ def lstm(num_features=123, layer_size=300):
 
     return model
 
+def roundTime(dt=None, date_delta=datetime.timedelta(minutes=1), to='average'):
+    """
+    Round a datetime object to a multiple of a timedelta
+    dt : datetime.datetime object, default now.
+    dateDelta : timedelta object, we round to a multiple of this, default 1 minute.
+    from:  http://stackoverflow.com/questions/3463930/how-to-round-the-minute-of-a-datetime-object-python
+    """
+    round_to = date_delta.total_seconds()
+    if dt is None:
+        dt = datetime.now()
+    seconds = (dt - dt.replace(hour=0, minute=0, second=0)).seconds
+
+    if seconds % round_to == 0:
+        rounding = (seconds + round_to / 2) // round_to * round_to
+    else:
+        if to == 'up':
+            # // is a floor division, not a comment on following line (like in javascript):
+            rounding = (seconds + round_to) // round_to * round_to
+        elif to == 'down':
+            rounding = seconds // round_to * round_to
+        else:
+            rounding = (seconds + round_to / 2) // round_to * round_to
+
+    return dt + datetime.timedelta(0, rounding - seconds, -dt.microsecond)
 
 def process(start_date, end_date, base_directory_path, spacecraft, username, password, test=False):
     # # Define MMS CDF directory location
     # Load model
-    print("\nLoading model.")
+    print(f"Loading model. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     model = lstm()
     model.load_weights('model/model_weights.h5')
 
     # Load data
-    print("\nLoading data:")
+    print(f"Loading data: | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     data = concatenate_all_cdf(start_date, end_date, base_directory_path, spacecraft, username, password)
 
     # Interpolate interior values, drop outside rows containing 0s
-    print("\nInterpolating NaNs.")
+    print(f"Interpolating NaNs. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     data = data.replace([np.inf, -np.inf], np.nan)
     data = data.interpolate(method='time', limit_area='inside')
     data = data.loc[(data != 0).any(axis=1)]
 
     # Select data within time range
-    #data = data.loc[start_date:end_date]
+    data = data.loc[start_date:end_date]
     data_index = data.index
 
     # Scale data
-    print("\nScaling data.")
+    print(f"Scaling data. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     scaler = pickle.load(open('model/scaler.sav', 'rb'))
     data = scaler.transform(data)
 
     # Run data through model
-    print("\nGenerating selection predictions.")
+    print(f"Generating selection predictions. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     predictions_list = model.predict(np.expand_dims(data, axis=0))
 
     # Filter predictions with threshold
@@ -677,16 +702,17 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
     predictions_df.insert(1, "prediction", filtered_output)
     predictions_df['group'] = (predictions_df.prediction != predictions_df.prediction.shift()).cumsum()
     predictions_df = predictions_df.loc[predictions_df['prediction'] == 1]
-    selections = pd.DataFrame({'BeginDate': predictions_df.groupby('group').time.first(),
-                               'EndDate': predictions_df.groupby('group').time.last()})
+    selections = pd.DataFrame({'BeginDate': predictions_df.groupby('group').time.first().map(lambda x: roundTime(x, datetime.timedelta(seconds=10))),
+                               'EndDate': predictions_df.groupby('group').time.last().map(lambda x: roundTime(x, datetime.timedelta(seconds=10)))})
     selections = selections.set_index('BeginDate')
-    selections['score'] = "Selection score not yet implemented"
-    selections['score'] = "Selection description not yet implemented - this is an auto generated description"
+    selections['score'] = "150.0" # This is a placeholder for the FOM
+
+    current_datetime = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    file_name = f'gls_selection_mp-dl-unh1_{current_datetime}.csv'
 
     # Output selections
-    print("Saving selections to CSV.")
+    print(f"Saving selections to CSV: {file_name} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
 
-    file_name = f'gl-mp-unh_{spacecraft}_{start_date.strftime("%Y-%m-%d")}_{end_date.strftime("%Y-%m-%d")}.csv'
     if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
         file_path = f''
         selections.to_csv(
@@ -698,7 +724,6 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
 
     absolute_file_path = Path(file_path+file_name).expanduser().absolute()
     md5_hash = get_md5(absolute_file_path)
-    current_datetime = datetime.datetime.now().strftime('%Y%m%d%H%M%s')
     manifest_file_name = f'mp-dl-unh_sdc_delivery_{current_datetime}.txt'
 
     # Create manifest file
@@ -760,8 +785,8 @@ def main():
         sys.exit(0)
 
     try:
-        start_date = datetime.datetime.strptime(str(sys.argv[1]), "%Y-%m-%d")
-        end_date = datetime.datetime.strptime(str(sys.argv[2]), "%Y-%m-%d")
+        start_date = datetime.datetime.strptime(str(sys.argv[1]), "%Y-%m-%dT%H:%M:%S")
+        end_date = datetime.datetime.strptime(str(sys.argv[2]), "%Y-%m-%dT%H:%M:%S")
         spacecraft = str(sys.argv[3])
 
     except ValueError as e:
@@ -785,7 +810,7 @@ def main():
 
     process(start_date, end_date, base_directory_path, spacecraft, username, password)
 
-    print("Done")
+    print(f"Done | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     sys.exit(0)
 
 main()
