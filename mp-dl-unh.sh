@@ -9,7 +9,6 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then # assume sript is run at the SDC
     python3 processor.py $1 $2 mms1 > ~/logs/mp-dl.unh.log
 
 elif [[ "$OSTYPE" == "darwin19" ]]; then # assume script is run on Colin Small's laptop
-    echo "\n mp-dl-unh job created at 'date'" >> mp-dl-unh_log.log
     python3 processor.py $1 $2 mms1 >> mp-dl-unh_log.log
 fi
 
