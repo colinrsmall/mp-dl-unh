@@ -708,8 +708,10 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
     selections['score'] = "150.0" # This is a placeholder for the FOM
     selections['description'] = "MP crossing (automatically generated)"
 
-    current_datetime = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-    file_name = f'gls_selections_mp-dl-unh1_{current_datetime}.csv'
+    current_datetime = datetime.datetime.now()
+    selections_filetime = current_datetime.strftime('%Y-%m-%d-%H-%M-%S')
+    manifest_filetime = current_datetime.strftime('%Y%m%d%H%M%S')
+    file_name = f'gls_selections_mp-dl-unh1_{selections_filetime}.csv'
 
     # Output selections
     print(f"Saving selections to CSV: {file_name} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
@@ -725,7 +727,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
 
     absolute_file_path = Path(file_path+file_name).expanduser().absolute()
     md5_hash = get_md5(absolute_file_path)
-    manifest_file_name = f'mp-dl-unh1_sdc_delivery_{current_datetime}.txt'
+    manifest_file_name = f'mp-dl-unh1_sdc_delivery_{manifest_filetime}.txt'
 
     # Create manifest file
     with open(Path(file_path+manifest_file_name).expanduser().absolute(), 'w') as manifest_file:
