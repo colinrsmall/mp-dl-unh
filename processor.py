@@ -702,13 +702,14 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
     predictions_df.insert(1, "prediction", filtered_output)
     predictions_df['group'] = (predictions_df.prediction != predictions_df.prediction.shift()).cumsum()
     predictions_df = predictions_df.loc[predictions_df['prediction'] == 1]
-    selections = pd.DataFrame({'BeginDate': predictions_df.groupby('group').time.first().map(lambda x: roundTime(x, datetime.timedelta(seconds=10))),
-                               'EndDate': predictions_df.groupby('group').time.last().map(lambda x: roundTime(x, datetime.timedelta(seconds=10)))})
+    selections = pd.DataFrame({'BeginDate': predictions_df.groupby('group').time.first().map(lambda x: roundTime(utc2tai(x), datetime.timedelta(seconds=10))),
+                               'EndDate': predictions_df.groupby('group').time.last().map(lambda x: roundTime(utc2tai(x), datetime.timedelta(seconds=10)))})
     selections = selections.set_index('BeginDate')
     selections['score'] = "150.0" # This is a placeholder for the FOM
+    selections['description'] = "MP crossing (automatically generated)"
 
     current_datetime = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-    file_name = f'gls_selection_mp-dl-unh1_{current_datetime}.csv'
+    file_name = f'gls_selections_mp-dl-unh1_{current_datetime}.csv'
 
     # Output selections
     print(f"Saving selections to CSV: {file_name} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
@@ -724,7 +725,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
 
     absolute_file_path = Path(file_path+file_name).expanduser().absolute()
     md5_hash = get_md5(absolute_file_path)
-    manifest_file_name = f'mp-dl-unh_sdc_delivery_{current_datetime}.txt'
+    manifest_file_name = f'mp-dl-unh1_sdc_delivery_{current_datetime}.txt'
 
     # Create manifest file
     with open(Path(file_path+manifest_file_name).expanduser().absolute(), 'w') as manifest_file:
