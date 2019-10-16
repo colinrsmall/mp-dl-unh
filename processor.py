@@ -760,6 +760,8 @@ def test(test_output):
 
 def main():
 
+    print(f"\nStarting new mp-dl-unh job. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+
     if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
         os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'  # Error workaround for running on Mac OS
         base_directory_path = Path('/Users/colinrsmall/Documents/GitHub/sitl-downloader/mms_api_downloads')
