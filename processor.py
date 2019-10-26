@@ -813,6 +813,7 @@ def main():
     if spacecraft not in ["mms1", "mms2", "mms3", "mms4"]:
         print("Error: Invalid spacecraft entered.")
         print(f'Expected one of [ "mms1", "mms2", "mms3", "mms4" ], got {spacecraft}.')
+        sys.exit(166)
 
     process(start_date, end_date, base_directory_path, spacecraft, username, password)
 
