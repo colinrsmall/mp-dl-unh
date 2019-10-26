@@ -296,8 +296,8 @@ def fpi_dis_cdf_to_dataframe(fpi_dis_cdf_path, spacecraft):
         fpi_dis_df[f'{spacecraft}_dis_Vz_Q'] = np.absolute(diff)
 
         # Compute n|V| quality
-        V = np.sqrt([ m[0]**2 + m[1]**2 + m[2]**2 for m in fpi_dis_cdf['mms1_dis_bulkv_dbcs_fast'][...]])
-        nV = np.multiply(fpi_dis_cdf['mms1_dis_numberdensity_fast'], V)
+        V = np.sqrt([ m[0]**2 + m[1]**2 + m[2]**2 for m in fpi_dis_cdf[f'{spacecraft}_dis_bulkv_dbcs_fast'][...]])
+        nV = np.multiply(fpi_dis_cdf[f'{spacecraft}_dis_numberdensity_fast'], V)
         smoothed_data = [Vz[0]]
         for i, value in enumerate(nV[1:]):
             smoothed_data.append((smoothed_data[i-1]*(2**M-1)+value)/2**M)
@@ -760,6 +760,7 @@ def test(test_output):
 
 def main():
 
+    print("\n-----------------------------------------------------------------------------------------")
     print(f"\nStarting new mp-dl-unh job. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
 
     if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
@@ -769,9 +770,9 @@ def main():
         base_directory_path = Path('/')
 
     if len(sys.argv) == 1 or sys.argv[1] in ['-h', '-help', '--h', '--help']:
-        print("Usage: processor.py start_date end_date spacecraft SDC_username SDC_password")
+        print("Usage: processor.py start_date end_date spacecraft")
         print("or")
-        print("Usage: processoy.py test SDC_username SDC_password")
+        print("Usage: processoy.py test")
         sys.exit(166)
 
     config = configparser.ConfigParser()
