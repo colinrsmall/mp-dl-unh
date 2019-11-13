@@ -2,8 +2,11 @@
 
 """
 
+print("\n-----------------------------------------------------------------------------------------")
+
 import datetime
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # Disables Tensorflow debugging information
 import pickle
 import sys
 import hashlib
@@ -633,30 +636,20 @@ def lstm(num_features=123, layer_size=300):
 
     return model
 
-def roundTime(dt=None, date_delta=datetime.timedelta(minutes=1), to='average'):
-    """
-    Round a datetime object to a multiple of a timedelta
+def roundTime(dt=None, dateDelta=datetime.timedelta(minutes=1)):
+    """Round a datetime object to a multiple of a timedelta
     dt : datetime.datetime object, default now.
     dateDelta : timedelta object, we round to a multiple of this, default 1 minute.
-    from:  http://stackoverflow.com/questions/3463930/how-to-round-the-minute-of-a-datetime-object-python
+    Author: Thierry Husson 2012 - Use it as you want but don't blame me.
+            Stijn Nevens 2014 - Changed to use only datetime objects as variables
     """
-    round_to = date_delta.total_seconds()
-    if dt is None:
-        dt = datetime.now()
-    seconds = (dt - dt.replace(hour=0, minute=0, second=0)).seconds
+    roundTo = dateDelta.total_seconds()
 
-    if seconds % round_to == 0:
-        rounding = (seconds + round_to / 2) // round_to * round_to
-    else:
-        if to == 'up':
-            # // is a floor division, not a comment on following line (like in javascript):
-            rounding = (seconds + round_to) // round_to * round_to
-        elif to == 'down':
-            rounding = seconds // round_to * round_to
-        else:
-            rounding = (seconds + round_to / 2) // round_to * round_to
-
-    return dt + datetime.timedelta(0, rounding - seconds, -dt.microsecond)
+    if dt == None : dt = datetime.datetime.now()
+    seconds = (dt - dt.min).seconds
+    # // is a floor division, not a comment on following line:
+    rounding = (seconds+roundTo/2) // roundTo * roundTo
+    return dt + datetime.timedelta(0,rounding-seconds,-dt.microsecond)
 
 def process(start_date, end_date, base_directory_path, spacecraft, username, password, test=False):
     # # Define MMS CDF directory location
@@ -705,12 +698,12 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
     selections = pd.DataFrame({'BeginDate': predictions_df.groupby('group').time.first().map(lambda x: roundTime(utc2tai(x), datetime.timedelta(seconds=10))),
                                'EndDate': predictions_df.groupby('group').time.last().map(lambda x: roundTime(utc2tai(x), datetime.timedelta(seconds=10)))})
     selections = selections.set_index('BeginDate')
+
     selections['score'] = "150.0" # This is a placeholder for the FOM
     selections['description'] = "MP crossing (automatically generated)"
 
     current_datetime = datetime.datetime.now()
     selections_filetime = current_datetime.strftime('%Y-%m-%d-%H-%M-%S')
-    manifest_filetime = current_datetime.strftime('%Y%m%d%H%M%S')
     file_name = f'gls_selections_mp-dl-unh_{selections_filetime}.csv'
 
     # Output selections
@@ -725,30 +718,6 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
         selections.to_csv(
             file_path+file_name, header=False)
 
-    absolute_file_path = Path(file_path+file_name).expanduser().absolute()
-    md5_hash = get_md5(absolute_file_path)
-    manifest_file_name = f'mp-dl-unh_sdc_delivery_{manifest_filetime}.txt'
-
-    # Create manifest file
-    with open(Path(file_path+manifest_file_name).expanduser().absolute(), 'w') as manifest_file:
-        manifest_file.write(f'{md5_hash}  {absolute_file_path}')
-    manifest_file.close()
-
-def get_md5(file_path):
-    """
-    Confirms file_path is a valid file and then computes and returns the md5 hash of the file.
-    Author: Kim Kokkonen
-    """
-    assert os.path.isfile(file_path), '%s is not a file' % file_path
-
-    # handles a file of any size
-    hasher = hashlib.md5()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(1048576), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
-
-
 def test(test_output):
     """
     Test the model
@@ -760,7 +729,6 @@ def test(test_output):
 
 def main():
 
-    print("\n-----------------------------------------------------------------------------------------")
     print(f"\nStarting new mp-dl-unh job. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
 
     if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
