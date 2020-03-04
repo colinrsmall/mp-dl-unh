@@ -54,6 +54,10 @@ def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument,
     Returns:
         A list of Path objects to all CDFs matching the query parameters.
     """
+    start_date = start_date.date()
+    end_date = end_date.date()
+    if (end_date == start_date):
+        end_date += datetime.timedelta(days=1)
 
     start_date_string = start_date.strftime("%Y-%m-%d")
     end_date_string = end_date.strftime("%Y-%m-%d")
@@ -731,12 +735,6 @@ def main():
 
     print(f"\nStarting new mp-dl-unh job. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
 
-    if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
-        os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'  # Error workaround for running on Mac OS
-        base_directory_path = Path('/Users/colinrsmall/Documents/GitHub/sitl-downloader/mms_api_downloads')
-    else:  # Assume processor is being run at SDC
-        base_directory_path = Path('/')
-
     if len(sys.argv) == 1 or sys.argv[1] in ['-h', '-help', '--h', '--help']:
         print("Usage: processor.py start_date end_date spacecraft")
         print("or")
@@ -745,6 +743,7 @@ def main():
 
     config = configparser.ConfigParser()
     config.read("config.ini")
+    base_directory_path = Path(config["PATHS"]["basedir"])
     username = config["LOGIN CREDENTIALS"]["username"]
     password = config["LOGIN CREDENTIALS"]["password"]
 
@@ -788,4 +787,6 @@ def main():
     print(f"Done | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     sys.exit(0)
 
-main()
+
+if __name__ == '__main__':
+    main()
