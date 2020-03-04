@@ -34,6 +34,14 @@ __email__ = "crs1031@wildcats.unh.edu"
 __status__ = "Production"
 
 BASE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+config = configparser.ConfigParser()
+config.read(BASE_DIR / "config.ini")
+model_dir = os.fspath(BASE_DIR / 'model/')
+base_directory_path = Path(config["PATHS"]["basedir"])
+dropbox_dir = Path(config["PATHS"]["dropbox"])
+username = config["LOGIN CREDENTIALS"]["username"]
+password = config["LOGIN CREDENTIALS"]["password"]
+
 
 
 def query_sdc(base_directory_path, start_date, end_date, spacecraft, instrument, data_level, data_rate_mode, username,
@@ -660,7 +668,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
     # Load model
     print(f"Loading model. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     model = lstm()
-    model.load_weights('model/model_weights.h5')
+    model.load_weights(model_dir + '/model_weights.h5')
 
     # Load data
     print(f"Loading data: | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
@@ -678,7 +686,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
 
     # Scale data
     print(f"Scaling data. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
-    scaler = pickle.load(open('model/scaler.sav', 'rb'))
+    scaler = pickle.load(open(model_dir + '/scaler.sav', 'rb'))
     data = scaler.transform(data)
 
     # Run data through model
@@ -712,15 +720,7 @@ def process(start_date, end_date, base_directory_path, spacecraft, username, pas
 
     # Output selections
     print(f"Saving selections to CSV: {file_name} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
-
-    if sys.platform == 'darwin':  # Processor is run locally on Colin Small's laptop
-        file_path = f''
-        selections.to_csv(
-            file_path+file_name, header=False)
-    else:  # Assume the processor is being run at the SDC
-        file_path = f'~/dropbox/'
-        selections.to_csv(
-            file_path+file_name, header=False)
+    selections.to_csv(dropbox_dir+filename, header=False)
 
 def test(test_output):
     """
@@ -740,12 +740,6 @@ def main():
         print("or")
         print("Usage: processoy.py test")
         sys.exit(166)
-
-    config = configparser.ConfigParser()
-    config.read("config.ini")
-    base_directory_path = Path(config["PATHS"]["basedir"])
-    username = config["LOGIN CREDENTIALS"]["username"]
-    password = config["LOGIN CREDENTIALS"]["password"]
 
     if sys.argv[1] == "test":
         start_date = datetime.datetime.strptime("2017-02-01T00:00:00", "%Y-%m-%dT%H:%M:%S")
