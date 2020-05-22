@@ -23,7 +23,7 @@ from pymms.sdc import selections as sel
 from keras import backend as K
 from pathlib import Path
 from sklearn.metrics import f1_score
-from tensorflow.keras.layers import Dense, Dropout, LSTM, Bidirectional, TimeDistributed
+from tensorflow.keras.layers import Dense, Dropout, LSTM, Bidirectional, TimeDistributed, CuDNNLSTM
 from tensorflow.keras.models import Sequential
 
 from tai import utc2tai
@@ -96,6 +96,20 @@ def lstm(num_features=129, layer_size=32):
     return model
 
 
+def gpu_lstm(num_features=129, layer_size=32):
+    """ Helper function to define the LSTM used to make predictions.
+
+    """
+    model = Sequential()
+
+    model.add(
+        Bidirectional(CuDNNLSTM(layer_size, return_sequences=True), input_shape=(None, num_features)))
+
+    model.add(TimeDistributed(Dense(1, activation='sigmoid')))
+
+    return model
+
+
 def roundTime(dt=None, dateDelta=datetime.timedelta(minutes=1)):
     """Round a datetime object to a multiple of a timedelta
     dt : datetime.datetime object, default now.
@@ -112,11 +126,11 @@ def roundTime(dt=None, dateDelta=datetime.timedelta(minutes=1)):
     return dt + datetime.timedelta(0,rounding-seconds,-dt.microsecond)
 
 
-def process(start_date, end_date, spacecraft, test=False):
+def process(start_date, end_date, spacecraft, gpu, test=False):
     # # Define MMS CDF directory location
     # Load model.model
     print(f"Loading model.model. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
-    model = lstm()
+    model = gpu_lstm() if gpu else lstm()
     model.load_weights(model_dir + '/model_weights.h5')
 
     # Load data
@@ -172,6 +186,7 @@ def main():
                          help="Start date of data interval, formatted as either '%%Y-%%m-%%d' or '%%Y-%%m-%%dT%%H:%%M:%%S'. Optionally an integer, interpreted as an orbit number.",
                          type=mp_dl_unh_data.validate_date)
     parser.add_argument("sc", help="Spacecraft IDs ('mms1', 'mms2', 'mms3', 'mms4')")
+    parser.add_argument("-g", "-gpu", help="Enables use of GPU-accelerated model for faster predictions.", action="store_true")
 
     args = parser.parse_args()
 
@@ -182,13 +197,14 @@ def main():
     sc = args.sc
     start = args.start
     end = args.end
+    gpu = args.g
 
     if sc not in ["mms1", "mms2", "mms3", "mms4"]:
         print("Error: Invalid spacecraft entered.")
         print(f'Expected one of [ "mms1", "mms2", "mms3", "mms4" ], got {sc}.')
         sys.exit(166)
 
-    selections = process(start, end, sc)
+    selections = process(start, end, sc, gpu)
 
     if not selections.empty:
         current_datetime = datetime.datetime.now()
