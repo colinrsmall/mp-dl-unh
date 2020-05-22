@@ -14,9 +14,11 @@ import pandas as pd
 import requests
 requests.adapters.DEFAULT_RETRIES = 5
 import argparse
+import tempfile
 
 import mp_dl_unh_data
 import pymms
+from pymms.sdc import selections as sel
 
 from keras import backend as K
 from pathlib import Path
@@ -140,17 +142,13 @@ def process(start_date, end_date, spacecraft, test=False):
         return filtered_output
 
     # Create selections from predictions
-    predictions_df = pd.DataFrame()
-    predictions_df.insert(0, "time", data_index)
-    predictions_df.insert(1, "prediction", filtered_output)
-    predictions_df['group'] = (predictions_df.prediction != predictions_df.prediction.shift()).cumsum()
-    predictions_df = predictions_df.loc[predictions_df['prediction'] == 1]
-    selections = pd.DataFrame({'BeginDate': predictions_df.groupby('group').time.first().map(lambda x: roundTime(utc2tai(x), datetime.timedelta(seconds=10))),
-                               'EndDate': predictions_df.groupby('group').time.last().map(lambda x: roundTime(utc2tai(x), datetime.timedelta(seconds=10)))})
-    selections = selections.set_index('BeginDate')
-
+    selections = pd.DataFrame()
+    selections.insert(0, "tstart", data_index)
+    selections.insert(0, "tstop", data_index)
+    selections.insert(1, "prediction", filtered_output)
     selections['FOM'] = "150.0" # This is a placeholder for the FOM
     selections['description'] = "MP crossing (automatically generated)"
+    selections = selections[selections['prediction'] == 1]
 
     return selections
 
@@ -198,8 +196,13 @@ def main():
         file_name = f'gls_selections_mp-dl-unh_{selections_filetime}.csv'
 
         # Output selections
-        print(f"Saving selections to CSV: {file_name} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
-        selections.to_csv(dropbox_dir + file_name, header=False)
+        print(f"Saving selections to CSV: {dropbox_dir + file_name} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        # selections.to_csv(dropbox_dir + file_name, header=False)
+        temp_path = Path(tempfile.gettempdir()) / Path(file_name)
+        selections.to_csv(temp_path)
+        selections = sel.read_csv(temp_path)
+        sel.combine_segments(selections)
+        sel.write_csv(dropbox_dir + file_name, selections)
 
     print(f"Done | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     sys.exit(0)
