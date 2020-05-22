@@ -39,7 +39,7 @@ BASE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 
 model_dir = os.fspath(BASE_DIR / 'model/')
 
-dropbox_dir = pymms.config['dropbox_root']
+dropbox_dir = pymms.config['dropbox_root'] if pymms.config['dropbox_root'] is not None else ""
 
 
 def f1(y_true, y_pred):
