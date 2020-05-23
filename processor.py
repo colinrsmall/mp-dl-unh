@@ -173,7 +173,7 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
 
     # Return predictions if testing
     if test:
-        return filtered_output
+        return data_index, filtered_output
 
     # Create selections from predictions
     selections = pd.DataFrame()
@@ -188,12 +188,15 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
     return selections
 
 
-def test(test_output):
+def test():
     """
     Test the model through January of 2018.
     """
-    test_y = joblib.load(open('test/test_y.sav', 'rb'))
-    return f1_score(test_y.astype(int), test_output)
+    validation_data = mp_dl_unh_data.get_data("mms1", 'sitl', "2018-01-01", "2018-01-02", True, True)
+    validation_data = validation_data.resample("5s").pad().dropna()
+    validation__y = validation_data['selected']
+    test_index, test_y = process("2018-01-01", "2018-01-02", "mms1", False, True)
+    return f1_score(validation__y.astype(int), test_y)
 
 
 def main():
@@ -208,6 +211,7 @@ def main():
                          type=mp_dl_unh_data.validate_date)
     parser.add_argument("sc", help="Spacecraft IDs ('mms1', 'mms2', 'mms3', 'mms4')")
     parser.add_argument("-g", "-gpu", help="Enables use of GPU-accelerated model for faster predictions. Requires CUDA installed.", action="store_true")
+    parser.add_argument("-t", "-test", help="Runs a test routine on the model.", action="store_true")
 
     args = parser.parse_args()
 
@@ -219,6 +223,10 @@ def main():
     start = args.start
     end = args.end
     gpu = args.g
+    t = args.t
+
+    if t:
+        print(f"Model F1 score: {test()}")
 
     if sc not in ["mms1", "mms2", "mms3", "mms4"]:
         print("Error: Invalid spacecraft entered.")
