@@ -150,6 +150,9 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
     print(f"Loading data: | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     data = mp_dl_unh_data.get_data(spacecraft, 'sitl', start_date, end_date, False, False)
 
+    data = data.replace([np.inf, -np.inf], np.nan)
+    data = data.interpolate(method='time', limit_area='inside')
+
     # Temporary workaround for 4.5 second time cadence of data not working with selections.combine_selections
     data = data.resample("5S").pad()
     data = data.dropna()
