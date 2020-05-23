@@ -188,14 +188,14 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
     return selections
 
 
-def test():
+def test(gpu):
     """
     Test the model through January of 2018.
     """
     validation_data = mp_dl_unh_data.get_data("mms1", 'sitl', "2018-01-01", "2018-01-02", True, True)
     validation_data = validation_data.resample("5s").pad().dropna()
     validation__y = validation_data['selected']
-    test_index, test_y = process("2018-01-01", "2018-01-02", "mms1", False, True)
+    test_index, test_y = process("2018-01-01", "2018-01-02", "mms1", gpu, True)
     return f1_score(validation__y.astype(int), test_y)
 
 
@@ -226,7 +226,7 @@ def main():
     t = args.t
 
     if t:
-        print(f"Model F1 score: {test()}")
+        print(f"Model F1 score: {test(gpu)}")
 
     if sc not in ["mms1", "mms2", "mms3", "mms4"]:
         print("Error: Invalid spacecraft entered.")
