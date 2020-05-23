@@ -126,6 +126,19 @@ def roundTime(dt=None, dateDelta=datetime.timedelta(minutes=1)):
     return dt + datetime.timedelta(0,rounding-seconds,-dt.microsecond)
 
 
+def fix_date_intervals(data_index):
+    """
+    Temporary workaround for 4.5 second intervals between selection dates.
+    """
+    dates = []
+    for index, date in enumerate(data_index):
+        if index % 2 == 0:
+            dates.append(date + datetime.timedelta(seconds=1))
+        else:
+            dates.append(date)
+    return dates
+
+
 def process(start_date, end_date, spacecraft, gpu, test=False):
     # # Define MMS CDF directory location
     # Load model.model
@@ -136,7 +149,11 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
     # Load data
     print(f"Loading data: | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     data = mp_dl_unh_data.get_data(spacecraft, 'sitl', start_date, end_date, False, False)
-    data_index = data.index.floor("S")
+
+    # Temporary workaround for 4.5 second time cadence of data not working with selections.combine_selections
+    data = data.resample("5S").pad()
+    data = data.dropna()
+    data_index = data.index
 
     # Scale data
     print(f"Scaling data. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
@@ -170,7 +187,7 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
 
 def test(test_output):
     """
-    Test the model
+    Test the model through January of 2018.
     """
     test_y = joblib.load(open('test/test_y.sav', 'rb'))
     return f1_score(test_y.astype(int), test_output)
@@ -218,7 +235,7 @@ def main():
         temp_path = Path(tempfile.gettempdir()) / Path(file_name)
         selections.to_csv(temp_path, index=False)
         selections = sel.read_csv(temp_path)
-        sel.combine_segments(selections, 10)
+        sel.combine_segments(selections, 5)
         sel.write_csv(dropbox_dir + file_name, selections)
 
     print(f"Done | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
