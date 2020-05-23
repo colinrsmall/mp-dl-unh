@@ -136,11 +136,11 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
     # Load data
     print(f"Loading data: | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     data = mp_dl_unh_data.get_data(spacecraft, 'sitl', start_date, end_date, False, False)
+    data_index = data.index.floor("S")
 
     # Scale data
     print(f"Scaling data. | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     scaler = joblib.load(open(model_dir + '/scaler.pkl', 'rb'))
-    data_index = data.index
     data = scaler.transform(data)
 
     # Run data through model.model
@@ -158,10 +158,11 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
     # Create selections from predictions
     selections = pd.DataFrame()
     selections.insert(0, "tstart", data_index)
-    selections.insert(0, "tstop", data_index)
-    selections.insert(1, "prediction", filtered_output)
+    selections.insert(1, "tstop", data_index)
+    selections.insert(2, "prediction", filtered_output)
     selections['FOM'] = "150.0" # This is a placeholder for the FOM
     selections['description'] = "MP crossing (automatically generated)"
+    selections['createtime'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     selections = selections[selections['prediction'] == 1]
 
     return selections
@@ -186,7 +187,7 @@ def main():
                          help="Start date of data interval, formatted as either '%%Y-%%m-%%d' or '%%Y-%%m-%%dT%%H:%%M:%%S'. Optionally an integer, interpreted as an orbit number.",
                          type=mp_dl_unh_data.validate_date)
     parser.add_argument("sc", help="Spacecraft IDs ('mms1', 'mms2', 'mms3', 'mms4')")
-    parser.add_argument("-g", "-gpu", help="Enables use of GPU-accelerated model for faster predictions.", action="store_true")
+    parser.add_argument("-g", "-gpu", help="Enables use of GPU-accelerated model for faster predictions. Requires CUDA installed.", action="store_true")
 
     args = parser.parse_args()
 
@@ -215,9 +216,9 @@ def main():
         print(f"Saving selections to CSV: {dropbox_dir + file_name} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
         # selections.to_csv(dropbox_dir + file_name, header=False)
         temp_path = Path(tempfile.gettempdir()) / Path(file_name)
-        selections.to_csv(temp_path)
+        selections.to_csv(temp_path, index=False)
         selections = sel.read_csv(temp_path)
-        sel.combine_segments(selections)
+        sel.combine_segments(selections, 10)
         sel.write_csv(dropbox_dir + file_name, selections)
 
     print(f"Done | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
