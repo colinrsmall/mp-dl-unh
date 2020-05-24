@@ -15,6 +15,7 @@ import requests
 requests.adapters.DEFAULT_RETRIES = 5
 import argparse
 import tempfile
+import shutil
 
 import mp_dl_unh_data
 import pymms
@@ -188,6 +189,31 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
     return selections
 
 
+def chunk_process(start_date, end_date, spacecraft, gpu, chunks, delete_after_chunk):
+    for i, (start, end) in enumerate(chunk_date_range(start_date, end_date, chunks)):
+        selections = process(start, end, spacecraft, gpu)
+        file_name = f'gls_selections_mp-dl-unh_chunk_{i}.csv'
+
+        print(f"Saving selections to CSV: {dropbox_dir + file_name}, chunk {i} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+
+        temp_path = Path(tempfile.gettempdir()) / Path(file_name)
+        selections.to_csv(temp_path, index=False)
+        selections = sel.read_csv(temp_path)
+        sel.combine_segments(selections, 5)
+        sel.write_csv(dropbox_dir + file_name, selections)
+
+        if delete_after_chunk:
+            shutil.rmtree(pymms.config['data_root'])
+
+
+def chunk_date_range(start, end, interval):
+    diff = (end - start) / interval
+    s = start
+    for i in range(interval):
+        yield s, (start + diff * i)
+        s = start + diff * i
+
+
 def test(gpu):
     """
     Test the model through January of 2018.
@@ -212,6 +238,8 @@ def main():
     parser.add_argument("sc", help="Spacecraft IDs ('mms1', 'mms2', 'mms3', 'mms4')")
     parser.add_argument("-g", "-gpu", help="Enables use of GPU-accelerated model for faster predictions. Requires CUDA installed.", action="store_true")
     parser.add_argument("-t", "-test", help="Runs a test routine on the model.", action="store_true")
+    parser.add_argument("-c", "-chunks", help="Break up the processing of the date interval in n chunks.", type=int)
+    parser.add_argument("-temp", help="If running the job in chunks, deletes the contents of the MMS root data folder after each chunk.", action="store_true")
 
     args = parser.parse_args()
 
@@ -224,6 +252,8 @@ def main():
     end = args.end
     gpu = args.g
     t = args.t
+    chunks = args.c
+    temp = args.temp
 
     if t:
         print(f"Model F1 score: {test(gpu)}")
@@ -233,21 +263,25 @@ def main():
         print(f'Expected one of [ "mms1", "mms2", "mms3", "mms4" ], got {sc}.')
         sys.exit(166)
 
-    selections = process(start, end, sc, gpu)
+    if chunks:
+        chunk_process(start, end, sc, gpu, chunks, temp)
 
-    if not selections.empty:
-        current_datetime = datetime.datetime.now()
-        selections_filetime = current_datetime.strftime('%Y-%m-%d-%H-%M-%S')
-        file_name = f'gls_selections_mp-dl-unh_{selections_filetime}.csv'
+    else:
+        selections = process(start, end, sc, gpu)
 
-        # Output selections
-        print(f"Saving selections to CSV: {dropbox_dir + file_name} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
-        # selections.to_csv(dropbox_dir + file_name, header=False)
-        temp_path = Path(tempfile.gettempdir()) / Path(file_name)
-        selections.to_csv(temp_path, index=False)
-        selections = sel.read_csv(temp_path)
-        sel.combine_segments(selections, 5)
-        sel.write_csv(dropbox_dir + file_name, selections)
+        if not selections.empty:
+            current_datetime = datetime.datetime.now()
+            selections_filetime = current_datetime.strftime('%Y-%m-%d-%H-%M-%S')
+            file_name = f'gls_selections_mp-dl-unh_{selections_filetime}.csv'
+
+            # Output selections
+            print(f"Saving selections to CSV: {dropbox_dir + file_name} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+            # selections.to_csv(dropbox_dir + file_name, header=False)
+            temp_path = Path(tempfile.gettempdir()) / Path(file_name)
+            selections.to_csv(temp_path, index=False)
+            selections = sel.read_csv(temp_path)
+            sel.combine_segments(selections, 5)
+            sel.write_csv(dropbox_dir + file_name, selections)
 
     print(f"Done | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
     sys.exit(0)
