@@ -16,6 +16,7 @@ requests.adapters.DEFAULT_RETRIES = 5
 import argparse
 import tempfile
 import shutil
+import glob
 
 import mp_dl_unh_data
 import pymms
@@ -189,21 +190,27 @@ def process(start_date, end_date, spacecraft, gpu, test=False):
     return selections
 
 
-def chunk_process(start_date, end_date, spacecraft, gpu, chunks, delete_after_chunk):
+def chunk_process(start_date, end_date, spacecraft, gpu, chunks, delete_after_chunk, clear_temp):
     for i, (start, end) in enumerate(chunk_date_range(start_date, end_date, chunks)):
         selections = process(start, end, spacecraft, gpu)
         file_name = f'gls_selections_mp-dl-unh_chunk_{i}.csv'
 
-        print(f"Saving selections to CSV: {dropbox_dir + file_name}, chunk {i} | {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
+        print(f"Saving selections to CSV: {dropbox_dir + file_name}, chunk {i} of {chunks}| {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}")
 
-        temp_path = Path(tempfile.gettempdir()) / Path(file_name)
-        selections.to_csv(temp_path, index=False)
-        selections = sel.read_csv(temp_path)
-        sel.combine_segments(selections, 5)
-        sel.write_csv(dropbox_dir + file_name, selections)
+        if not selections.empty:
+            temp_path = Path(tempfile.gettempdir()) / Path(file_name)
+            selections.to_csv(temp_path, index=False)
+            selections = sel.read_csv(temp_path)
+            sel.combine_segments(selections, 5)
+            sel.write_csv(dropbox_dir + file_name, selections)
 
         if delete_after_chunk:
             shutil.rmtree(pymms.config['data_root'])
+
+        if clear_temp:
+            files = glob.glob(tempfile.gettempdir() + "/*")
+            for f in files:
+                os.remove(f)
 
 
 def chunk_date_range(start, end, interval):
@@ -264,7 +271,7 @@ def main():
         sys.exit(166)
 
     if chunks:
-        chunk_process(start, end, sc, gpu, chunks, temp)
+        chunk_process(start, end, sc, gpu, chunks, temp, True)
 
     else:
         selections = process(start, end, sc, gpu)
