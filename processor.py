@@ -28,8 +28,6 @@ from sklearn.metrics import f1_score
 from tensorflow.keras.layers import Dense, Dropout, LSTM, Bidirectional, TimeDistributed, CuDNNLSTM
 from tensorflow.keras.models import Sequential
 
-from tai import utc2tai
-
 __author__ = "Colin Small"
 __copyright__ = "Copyright 2019"
 __credits__ = ["Colin Small", "Matthew Argall", "Marek Petrik"]
@@ -84,7 +82,7 @@ def f1(y_true, y_pred):
     return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
 
 
-def lstm(num_features=129, layer_size=32):
+def lstm(num_features=129, layer_size=128):
     """ Helper function to define the LSTM used to make predictions.
 
     """
@@ -98,7 +96,7 @@ def lstm(num_features=129, layer_size=32):
     return model
 
 
-def gpu_lstm(num_features=129, layer_size=32):
+def gpu_lstm(num_features=129, layer_size=128):
     """ Helper function to define the LSTM used to make predictions.
 
     """
@@ -211,6 +209,8 @@ def chunk_process(start_date, end_date, spacecraft, gpu, chunks, delete_after_ch
             files = glob.glob(tempfile.gettempdir() + "/*")
             for f in files:
                 os.remove(f)
+
+
 
 
 def chunk_date_range(start, end, interval):
